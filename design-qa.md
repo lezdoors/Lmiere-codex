@@ -20,6 +20,7 @@ The landing and studio are responsive interpretations of their source panels rat
 Desktop, 1280 × 720 CSS px:
 
 - `qa/phase2/landing-desktop-viewport.png`
+- `qa/phase2/landing-hero-signal.png`
 - `qa/phase2/landing-outcomes.png`
 - `qa/phase2/landing-records.png`
 - `qa/phase2/studio-desktop.png`
@@ -56,6 +57,7 @@ Tablet geometry was also checked at 1024 × 768 CSS px. Browser captures were ta
 - The studio prompt exposes a level-one heading, while account and sealed run states use semantic `h1` headings.
 - Focus indicators, practical mobile controls, labels, status/error roles, and keyboard-reachable navigation remain present.
 - Signal-image flicker is cursor-reactive and uses pointer position; duplicate image layers are decorative and hidden from assistive technology.
+- The hero apparatus now uses the same cursor-positioned signal system, with a localized scan-grid pulse and sliced image echoes verified over the apparatus region.
 - Signal flicker, transitions, and the account background video are disabled under `prefers-reduced-motion: reduce`.
 
 ## States and interactions verified

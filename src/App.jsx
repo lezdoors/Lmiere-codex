@@ -119,6 +119,7 @@ function SignalImage({ src, alt, className = "", loading = "lazy" }) {
   const [active, setActive] = useState(false);
 
   function moveSignal(event) {
+    setActive(true);
     const rect = event.currentTarget.getBoundingClientRect();
     const x = ((event.clientX - rect.left) / rect.width) * 100;
     const y = ((event.clientY - rect.top) / rect.height) * 100;
@@ -408,10 +409,11 @@ function LandingScreen({ onEnterStudio, onOpenPanel, onNavigate, session }) {
         <div className="landing-rule" aria-hidden="true" />
 
         <section className="landing-hero">
-          <img
+          <SignalImage
             className="landing-machine"
             src="/assets/lmiere-field-machine.png"
             alt="A meteorite fused with a precision camera mechanism, drawn like a scientific blueprint"
+            loading="eager"
           />
 
           <div className="landing-copy">

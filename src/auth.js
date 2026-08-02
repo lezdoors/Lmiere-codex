@@ -1,62 +1,46 @@
 const authUrl = (import.meta.env.VITE_NEON_AUTH_URL || "").replace(/\/$/, "");
+let clientPromise;
 
-async function authRequest(path, { method = "GET", body } = {}) {
-  if (!authUrl) return { data: null, error: { message: "Neon Auth is not configured." } };
-
-  try {
-    const response = await fetch(`${authUrl}/${path}`, {
-      method,
-      credentials: "include",
-      headers: {
-        Accept: "application/json",
-        ...(body ? { "Content-Type": "application/json" } : {}),
-      },
-      ...(body ? { body: JSON.stringify(body) } : {}),
-    });
-    const data = await response.json().catch(() => null);
-
-    if (!response.ok) {
-      return {
-        data: null,
-        error: {
-          message: data?.message || data?.error || `Authentication failed (HTTP ${response.status}).`,
-        },
-      };
-    }
-
-    const token = response.headers.get("set-auth-jwt");
-    if (token && data?.session) data.session.token = token;
-    return { data, error: null };
-  } catch {
-    return { data: null, error: { message: "The authentication service could not be reached." } };
+function getAuthClient() {
+  if (!authUrl) return Promise.resolve(null);
+  if (!clientPromise) {
+    clientPromise = import("@neondatabase/auth").then(({ createAuthClient }) => (
+      createAuthClient(authUrl, {
+        fetchOptions: { credentials: "include" },
+      })
+    ));
   }
+  return clientPromise;
 }
 
-export const authClient = authUrl ? {
-  signIn: {
-    email: ({ email, password }) => authRequest("sign-in/email", {
-      method: "POST",
-      body: { email, password },
-    }),
-  },
-  signUp: {
-    email: ({ name, email, password }) => authRequest("sign-up/email", {
-      method: "POST",
-      body: { name, email, password },
-    }),
-  },
-  getSession: () => authRequest("get-session"),
-  signOut: () => authRequest("sign-out", { method: "POST" }),
-} : null;
+export const authClient = authUrl
+  ? {
+      signIn: {
+        email: async (payload) => (await getAuthClient()).signIn.email(payload),
+      },
+      signUp: {
+        email: async (payload) => (await getAuthClient()).signUp.email(payload),
+      },
+      getSession: async () => (await getAuthClient()).getSession(),
+      token: async () => (await getAuthClient()).token(),
+      signOut: async () => (await getAuthClient()).signOut(),
+    }
+  : null;
 
 export const isAuthConfigured = Boolean(authClient);
 
 export async function getSessionWithToken() {
   if (!authClient) return { session: null, token: null };
-  const response = await authClient.getSession();
+
+  const sessionResponse = await authClient.getSession();
+  if (sessionResponse?.error || !sessionResponse?.data?.session || !sessionResponse?.data?.user) {
+    return { session: null, token: null };
+  }
+
+  const tokenResponse = await authClient.token();
   return {
-    session: response?.data ?? null,
-    token: response?.data?.session?.token ?? null,
+    session: sessionResponse.data,
+    token: tokenResponse?.data?.token ?? null,
   };
 }
 
