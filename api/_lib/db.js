@@ -31,6 +31,18 @@ function mapGeneration(row) {
   };
 }
 
+function mapLedgerEntry(row) {
+  return {
+    id: row.id,
+    generationId: row.generation_id,
+    kind: row.kind,
+    balanceDeltaCents: row.balance_delta_cents,
+    reservedDeltaCents: row.reserved_delta_cents,
+    note: row.note,
+    createdAt: row.created_at,
+  };
+}
+
 export async function getAccount(userId) {
   const sql = db();
   const [accountRow] = await sql`
@@ -44,7 +56,19 @@ export async function getAccount(userId) {
       order by created_at desc
       limit 30
   `;
-  return { account: accountRow.account, runs: runs.map(mapGeneration) };
+  const ledger = await sql`
+    select id::text, generation_id, kind, balance_delta_cents,
+           reserved_delta_cents, note, created_at
+      from public.lmiere_wallet_ledger
+      where user_id = ${userId}::uuid
+      order by created_at desc
+      limit 50
+  `;
+  return {
+    account: accountRow.account,
+    runs: runs.map(mapGeneration),
+    ledger: ledger.map(mapLedgerEntry),
+  };
 }
 
 export async function reserveGeneration({ id, userId, outcome, model, prompt, chargeCents }) {

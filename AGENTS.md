@@ -17,3 +17,6 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 - Keep Fal provider details and technical model names out of the default customer experience.
 - Prototype with mocked jobs and credits first. Neon Auth, per-user credit ledgers, and Fal integration come after the UI is approved.
 - Use warm bone, forest green, oxidized ultramarine, and sulfur amber. Avoid generic AI gradients, glassmorphism, dashboard grids, and excessive animation.
+- Use a deliberate serif/mono contrast: monumental editorial serif for ideas and outcomes, precise mono for controls, prices, metadata, and status.
+- Interactive media may use restrained cursor-reactive signal corruption: brief pixel misregistration and flicker on hover, with calm default states and a reduced-motion fallback.
+- Keep each page visually coherent. The landing remains the warm field manual, the studio remains the dark render network, and the archive may use a separate electric-ultramarine editorial system; do not blend all three systems inside one page.

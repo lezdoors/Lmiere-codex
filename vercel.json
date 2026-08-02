@@ -3,6 +3,14 @@
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist/client",
+  "rewrites": [
+    { "source": "/studio", "destination": "/index.html" },
+    { "source": "/archive", "destination": "/index.html" },
+    { "source": "/account", "destination": "/index.html" },
+    { "source": "/runs/:path*", "destination": "/index.html" },
+    { "source": "/privacy", "destination": "/index.html" },
+    { "source": "/terms", "destination": "/index.html" }
+  ],
   "functions": {
     "api/**/*.js": {
       "maxDuration": 60

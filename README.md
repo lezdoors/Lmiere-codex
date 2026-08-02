@@ -2,10 +2,22 @@
 
 Lmiere is a pay-per-generation image and motion studio designed for people who want capable AI tools without provider dashboards, model jargon, or shared team credits.
 
-The experience has two deliberately separate visual systems:
+The experience has three deliberately separate visual systems:
 
 - a warm archival field manual for discovery and trust;
-- a dark signal-room studio for authenticated generation work.
+- a dark signal-room studio for generation and private wallet work;
+- an electric ultramarine editorial archive for completed records.
+
+## Product routes
+
+- `/` — field manual and outcome pricing
+- `/studio` — generation studio
+- `/archive` — private generation archive
+- `/runs/:id` — complete run record and remix entry point
+- `/account` — wallet, ledger, and account actions
+- `/privacy` and `/terms` — beta legal drafts
+
+Images use a restrained cursor-reactive signal flicker. The effect, along with the account background motion, is disabled when the visitor prefers reduced motion.
 
 ## Architecture
 
