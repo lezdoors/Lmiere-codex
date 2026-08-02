@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -117,26 +117,153 @@ function BrandMark({ dark = false }) {
 
 function SignalImage({ src, alt, className = "", loading = "lazy" }) {
   const [active, setActive] = useState(false);
+  const imageRef = useRef(null);
+  const canvasRef = useRef(null);
+  const sourceCanvasRef = useRef(null);
+  const frameRef = useRef(null);
+  const warpUnavailableRef = useRef(false);
+
+  useEffect(() => {
+    warpUnavailableRef.current = false;
+    sourceCanvasRef.current = null;
+
+    return () => {
+      if (frameRef.current) window.cancelAnimationFrame(frameRef.current);
+    };
+  }, [src]);
+
+  function objectPositionValue(token, fallback = 50) {
+    if (!token) return fallback;
+    if (token.endsWith("%")) return Number.parseFloat(token);
+    if (token === "left" || token === "top") return 0;
+    if (token === "right" || token === "bottom") return 100;
+    return token === "center" ? 50 : fallback;
+  }
+
+  function drawWarp(localX, localY, displayWidth, displayHeight) {
+    const image = imageRef.current;
+    const canvas = canvasRef.current;
+    if (
+      warpUnavailableRef.current
+      || !image?.complete
+      || !image.naturalWidth
+      || !canvas
+      || displayWidth <= 0
+      || displayHeight <= 0
+    ) return;
+
+    const density = Math.min(window.devicePixelRatio || 1, 1.5);
+    const width = Math.max(1, Math.round(displayWidth * density));
+    const height = Math.max(1, Math.round(displayHeight * density));
+
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+      sourceCanvasRef.current = null;
+    }
+
+    try {
+      let sourceCanvas = sourceCanvasRef.current;
+      if (!sourceCanvas) {
+        sourceCanvas = document.createElement("canvas");
+        sourceCanvas.width = width;
+        sourceCanvas.height = height;
+        const sourceContext = sourceCanvas.getContext("2d", { willReadFrequently: true });
+        const [positionX, positionY] = window.getComputedStyle(image).objectPosition.split(/\s+/);
+        const xRatio = objectPositionValue(positionX) / 100;
+        const yRatio = objectPositionValue(positionY, objectPositionValue(positionX)) / 100;
+        const scale = Math.max(width / image.naturalWidth, height / image.naturalHeight);
+        const renderedWidth = image.naturalWidth * scale;
+        const renderedHeight = image.naturalHeight * scale;
+        sourceContext.drawImage(
+          image,
+          (width - renderedWidth) * xRatio,
+          (height - renderedHeight) * yRatio,
+          renderedWidth,
+          renderedHeight,
+        );
+        sourceCanvasRef.current = sourceCanvas;
+      }
+
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      const sourceContext = sourceCanvas.getContext("2d", { willReadFrequently: true });
+      const centerX = Math.round(localX * density);
+      const centerY = Math.round(localY * density);
+      const radius = Math.round(Math.max(44, Math.min(96, Math.min(displayWidth, displayHeight) * 0.16)) * density);
+      const left = Math.max(0, centerX - radius);
+      const top = Math.max(0, centerY - radius);
+      const right = Math.min(width, centerX + radius);
+      const bottom = Math.min(height, centerY + radius);
+      const regionWidth = right - left;
+      const regionHeight = bottom - top;
+      if (regionWidth <= 0 || regionHeight <= 0) return;
+
+      const sourcePixels = sourceContext.getImageData(left, top, regionWidth, regionHeight);
+      const warpedPixels = context.createImageData(regionWidth, regionHeight);
+      const edgeWidth = Math.max(4, 9 * density);
+
+      for (let y = 0; y < regionHeight; y += 1) {
+        for (let x = 0; x < regionWidth; x += 1) {
+          const offsetX = left + x - centerX;
+          const offsetY = top + y - centerY;
+          const distance = Math.hypot(offsetX, offsetY);
+          if (distance >= radius) continue;
+
+          const falloff = 1 - distance / radius;
+          const angle = Math.atan2(offsetY, offsetX) + 1.22 * falloff * falloff;
+          const pulledDistance = distance * (1 - 0.13 * falloff);
+          const sampleX = Math.round(centerX + Math.cos(angle) * pulledDistance) - left;
+          const sampleY = Math.round(centerY + Math.sin(angle) * pulledDistance) - top;
+          if (sampleX < 0 || sampleY < 0 || sampleX >= regionWidth || sampleY >= regionHeight) continue;
+
+          const sourceIndex = (sampleY * regionWidth + sampleX) * 4;
+          const targetIndex = (y * regionWidth + x) * 4;
+          const edgeAlpha = Math.min(1, (radius - distance) / edgeWidth);
+          warpedPixels.data[targetIndex] = sourcePixels.data[sourceIndex];
+          warpedPixels.data[targetIndex + 1] = sourcePixels.data[sourceIndex + 1];
+          warpedPixels.data[targetIndex + 2] = sourcePixels.data[sourceIndex + 2];
+          warpedPixels.data[targetIndex + 3] = sourcePixels.data[sourceIndex + 3] * edgeAlpha;
+        }
+      }
+
+      context.clearRect(0, 0, width, height);
+      context.putImageData(warpedPixels, left, top);
+    } catch {
+      // Cross-origin generated media can block pixel reads. Keep the image usable.
+      warpUnavailableRef.current = true;
+      setActive(false);
+      canvas.getContext("2d")?.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  }
 
   function moveSignal(event) {
     setActive(true);
     const rect = event.currentTarget.getBoundingClientRect();
-    const x = ((event.clientX - rect.left) / rect.width) * 100;
-    const y = ((event.clientY - rect.top) / rect.height) * 100;
-    event.currentTarget.style.setProperty("--signal-x", `${x.toFixed(2)}%`);
-    event.currentTarget.style.setProperty("--signal-y", `${y.toFixed(2)}%`);
+    const localX = event.clientX - rect.left;
+    const localY = event.clientY - rect.top;
+    event.currentTarget.style.setProperty("--signal-x", `${((localX / rect.width) * 100).toFixed(2)}%`);
+    event.currentTarget.style.setProperty("--signal-y", `${((localY / rect.height) * 100).toFixed(2)}%`);
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (frameRef.current) window.cancelAnimationFrame(frameRef.current);
+    frameRef.current = window.requestAnimationFrame(() => drawWarp(localX, localY, rect.width, rect.height));
+  }
+
+  function endSignal() {
+    setActive(false);
+    if (frameRef.current) window.cancelAnimationFrame(frameRef.current);
+    const canvas = canvasRef.current;
+    canvas?.getContext("2d")?.clearRect(0, 0, canvas.width, canvas.height);
   }
 
   return (
     <span
       className={`signal-image ${active ? "is-signal-active" : ""} ${className}`}
       onPointerEnter={() => setActive(true)}
-      onPointerLeave={() => setActive(false)}
+      onPointerLeave={endSignal}
       onPointerMove={moveSignal}
     >
-      <img className="signal-image-base" src={src} alt={alt} loading={loading} />
-      <img className="signal-image-echo signal-image-echo-a" src={src} alt="" aria-hidden="true" loading={loading} />
-      <img className="signal-image-echo signal-image-echo-b" src={src} alt="" aria-hidden="true" loading={loading} />
+      <img ref={imageRef} className="signal-image-base" src={src} alt={alt} loading={loading} onLoad={() => { sourceCanvasRef.current = null; }} />
+      <canvas ref={canvasRef} className="signal-image-warp" aria-hidden="true" />
     </span>
   );
 }
@@ -146,6 +273,7 @@ function AuthPanel({ session, account, onAuthenticated, onSignOut }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -158,6 +286,16 @@ function AuthPanel({ session, account, onAuthenticated, onSignOut }) {
       return;
     }
 
+    if (mode === "sign-up" && password.length < 8) {
+      setError("Use at least 8 characters for your password.");
+      return;
+    }
+
+    if (mode === "sign-up" && password !== confirmPassword) {
+      setError("The passwords do not match.");
+      return;
+    }
+
     setBusy(true);
     try {
       const response = mode === "sign-up"
@@ -167,7 +305,14 @@ function AuthPanel({ session, account, onAuthenticated, onSignOut }) {
       if (response?.error) throw new Error(response.error.message ?? "Authentication failed.");
       await onAuthenticated();
     } catch (authError) {
-      setError(authError instanceof Error ? authError.message : "Authentication failed.");
+      const message = authError instanceof Error ? authError.message : "Authentication failed.";
+      if (/security requirements|at least 8|too short/i.test(message)) {
+        setError("Use at least 8 characters for your password.");
+      } else if (/already exists|already registered/i.test(message)) {
+        setError("An account with this email already exists. Sign in instead.");
+      } else {
+        setError(message);
+      }
     } finally {
       setBusy(false);
     }
@@ -233,7 +378,21 @@ function AuthPanel({ session, account, onAuthenticated, onSignOut }) {
             minLength={8}
             required
           />
+          {mode === "sign-up" && <small className="auth-hint">Use 8 or more characters.</small>}
         </label>
+        {mode === "sign-up" && (
+          <label>
+            <span>Confirm password</span>
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              autoComplete="new-password"
+              minLength={8}
+              required
+            />
+          </label>
+        )}
         {error && <p className="auth-error" role="alert">{error}</p>}
         <button className="panel-action" type="submit" disabled={busy || !isAuthConfigured}>
           {busy ? <><CircleNotch className="spin" size={17} /> Connecting</> : (
@@ -247,6 +406,7 @@ function AuthPanel({ session, account, onAuthenticated, onSignOut }) {
         type="button"
         onClick={() => {
           setMode((value) => value === "sign-in" ? "sign-up" : "sign-in");
+          setConfirmPassword("");
           setError("");
         }}
       >
@@ -282,16 +442,17 @@ function SidePanel({
   onSignOut,
 }) {
   if (!panel) return null;
+  const panelTitle = panel === "Sign in" ? "Account access" : panel;
 
   return (
     <div className="panel-scrim" role="presentation" onMouseDown={onClose}>
       <aside
         className="side-panel"
-        aria-label={`${panel} panel`}
+        aria-label={`${panelTitle} panel`}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="panel-header">
-          <span>{panel}</span>
+          <span>{panelTitle}</span>
           <button className="panel-close" type="button" onClick={onClose} aria-label="Close panel">
             <X size={18} weight="light" />
           </button>
@@ -399,8 +560,9 @@ function LandingScreen({ onEnterStudio, onOpenPanel, onNavigate, session }) {
 
           <nav className="landing-nav" aria-label="Landing navigation">
             <button type="button" onClick={() => onNavigate("/archive")}>Archive</button>
-            <button type="button" onClick={() => onOpenPanel("Sign in")}>
-              {session?.user?.name || "Sign in"}
+            <button className="landing-nav-account" type="button" onClick={() => onOpenPanel("Sign in")}>
+              <span className="landing-account-full">{session?.user?.name || "Sign in"}</span>
+              <span className="landing-account-short">Account</span>
             </button>
             <button className="landing-nav-cta" type="button" onClick={onEnterStudio}>Open studio</button>
           </nav>

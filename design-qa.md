@@ -20,7 +20,11 @@ The landing and studio are responsive interpretations of their source panels rat
 Desktop, 1280 × 720 CSS px:
 
 - `qa/phase2/landing-desktop-viewport.png`
-- `qa/phase2/landing-hero-signal.png`
+- `qa/phase2/landing-hero-swirl.png`
+- `qa/phase2/hero-base.png`
+- `qa/phase2/hero-diff.png`
+- `qa/phase2/signup-panel.png`
+- `qa/phase2/signup-mobile.png`
 - `qa/phase2/landing-outcomes.png`
 - `qa/phase2/landing-records.png`
 - `qa/phase2/studio-desktop.png`
@@ -56,9 +60,9 @@ Tablet geometry was also checked at 1024 × 768 CSS px. Browser captures were ta
 - All images have alt attributes and all visible buttons have accessible names.
 - The studio prompt exposes a level-one heading, while account and sealed run states use semantic `h1` headings.
 - Focus indicators, practical mobile controls, labels, status/error roles, and keyboard-reachable navigation remain present.
-- Signal-image flicker is cursor-reactive and uses pointer position; duplicate image layers are decorative and hidden from assistive technology.
-- The hero apparatus now uses the same cursor-positioned signal system, with a localized scan-grid pulse and sliced image echoes verified over the apparatus region.
-- Signal flicker, transitions, and the account background video are disabled under `prefers-reduced-motion: reduce`.
+- Signal-image deformation is cursor-reactive and uses pointer position; a canvas remaps only the pixels inside a small feathered radius while the base image remains calm.
+- The hero apparatus now produces a localized liquid swirl under the pointer rather than scan lines, sliced echoes, or full-image flicker. The base, active, and visual-difference captures verify that the response stays confined to the cursor region.
+- The swirl, transitions, and the account background video are disabled under `prefers-reduced-motion: reduce`.
 
 ## States and interactions verified
 
@@ -76,7 +80,9 @@ Tablet geometry was also checked at 1024 × 768 CSS px. Browser captures were ta
 - P2 — Public copy exposed test-account/provider language. Fixed with customer-facing private-account and outcome language.
 - P2 — Studio footer/output density collided at shorter desktop heights. Fixed by allowing the studio to scroll naturally and preserving the output frame.
 - P2 — The first mobile archive pass overflowed by 32 px. Fixed and rechecked across all routes.
-- P2 — Motion lacked the requested intentional signal corruption. Fixed with cursor-positioned image echoes and a reduced-motion fallback.
+- P2 — The first motion pass read as horizontal glitch flicker rather than deformation. Replaced with a cursor-positioned pixel warp/mini swirl and retained the reduced-motion fallback.
+- P2 — Signup could reach Neon with unclear password requirements. Added an explicit eight-character hint, confirmation field, mismatch validation, and friendly account errors.
+- P2 — Mobile hid every account entry point in the landing header. Kept a compact Account action beside Open Studio and verified the full signup form at 390 × 844.
 
 Final findings: P0 0, P1 0, P2 0.
 

@@ -17,7 +17,7 @@ The experience has three deliberately separate visual systems:
 - `/account` — wallet, ledger, and account actions
 - `/privacy` and `/terms` — beta legal drafts
 
-Images use a restrained cursor-reactive signal flicker. The effect, along with the account background motion, is disabled when the visitor prefers reduced motion.
+Images use a localized cursor-reactive deformation: a small liquid swirl bends the artwork directly beneath the pointer without disturbing the rest of the composition. The effect, along with the account background motion, is disabled when the visitor prefers reduced motion.
 
 ## Architecture
 
