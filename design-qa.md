@@ -25,6 +25,7 @@ Desktop, 1280 × 720 CSS px:
 - `qa/phase2/hero-diff.png`
 - `qa/phase2/signup-panel.png`
 - `qa/phase2/signup-mobile.png`
+- `qa/phase2/production-hero-swirl.png`
 - `qa/phase2/landing-outcomes.png`
 - `qa/phase2/landing-records.png`
 - `qa/phase2/studio-desktop.png`
