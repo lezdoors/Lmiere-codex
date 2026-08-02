@@ -13,6 +13,23 @@ export function initialCreditCents() {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 }
 
+function nonNegativeInteger(name, fallback) {
+  const parsed = Number.parseInt(process.env[name] ?? String(fallback), 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
+export function userDailyLimitCents() {
+  return nonNegativeInteger("LMIERE_DAILY_USER_LIMIT_CENTS", 500);
+}
+
+export function globalDailyLimitCents() {
+  return nonNegativeInteger("LMIERE_DAILY_GLOBAL_LIMIT_CENTS", 2000);
+}
+
+export function maxActiveGenerations() {
+  return nonNegativeInteger("LMIERE_MAX_ACTIVE_GENERATIONS", 2);
+}
+
 function mapGeneration(row) {
   if (!row) return null;
   return {
@@ -74,12 +91,134 @@ export async function getAccount(userId) {
 export async function reserveGeneration({ id, userId, outcome, model, prompt, chargeCents }) {
   const sql = db();
   const [row] = await sql`
-    select public.lmiere_reserve_generation(
+    select public.lmiere_reserve_generation_v2(
       ${id}, ${userId}::uuid, ${outcome}, ${model}, ${prompt},
-      ${chargeCents}::integer, ${initialCreditCents()}::integer
+      ${chargeCents}::integer,
+      ${initialCreditCents()}::integer,
+      ${userDailyLimitCents()}::integer,
+      ${globalDailyLimitCents()}::integer,
+      ${maxActiveGenerations()}::integer
     ) as reservation
   `;
   return row.reservation;
+}
+
+export async function claimEmailEvent({ userId, kind, recipient }) {
+  const sql = db();
+  const [row] = await sql`
+    insert into public.lmiere_email_events (
+      user_id, kind, recipient, status, attempts, updated_at
+    ) values (
+      ${userId}::uuid, ${kind}, ${recipient}, 'sending', 1, now()
+    )
+    on conflict (user_id, kind) do update
+      set recipient = excluded.recipient,
+          status = 'sending',
+          attempts = public.lmiere_email_events.attempts + 1,
+          last_error = null,
+          next_attempt_at = null,
+          updated_at = now()
+      where (
+        public.lmiere_email_events.status = 'failed'
+        and coalesce(public.lmiere_email_events.next_attempt_at, now()) <= now()
+      ) or (
+        public.lmiere_email_events.status = 'sending'
+        and public.lmiere_email_events.updated_at < now() - interval '5 minutes'
+      )
+    returning id::text, kind, recipient, attempts
+  `;
+  return row ?? null;
+}
+
+export async function markEmailEventSent(id, providerId) {
+  const sql = db();
+  await sql`
+    update public.lmiere_email_events
+      set status = 'sent',
+          provider_id = ${providerId},
+          sent_at = now(),
+          last_error = null,
+          next_attempt_at = null,
+          updated_at = now()
+      where id = ${id}::bigint
+  `;
+}
+
+export async function markEmailEventFailed(id, error) {
+  const sql = db();
+  await sql`
+    update public.lmiere_email_events
+      set status = 'failed',
+          last_error = left(${error}, 1000),
+          next_attempt_at = now() + interval '15 minutes',
+          updated_at = now()
+      where id = ${id}::bigint
+  `;
+}
+
+export async function recordEmailDeliveryEvent({ eventId, providerId, eventType, occurredAt }) {
+  const sql = db();
+  const [inserted] = await sql`
+    insert into public.lmiere_email_webhook_events (
+      event_id, provider_id, event_type, occurred_at
+    ) values (
+      ${eventId}, ${providerId}, ${eventType}, ${occurredAt}::timestamptz
+    )
+    on conflict (event_id) do nothing
+    returning event_id
+  `;
+  if (!inserted || !providerId) return false;
+
+  const status = {
+    "email.delivered": "delivered",
+    "email.bounced": "bounced",
+    "email.complained": "complained",
+    "email.suppressed": "suppressed",
+    "email.failed": "failed",
+  }[eventType];
+  if (!status) return true;
+
+  await sql`
+    update public.lmiere_email_events
+      set status = ${status},
+          delivered_at = case when ${status} = 'delivered' then ${occurredAt}::timestamptz else delivered_at end,
+          updated_at = now()
+      where provider_id = ${providerId}
+  `;
+  return true;
+}
+
+export async function getDatabaseReadiness() {
+  const sql = db();
+  const [auth] = await sql`
+    select email_and_password, email_provider, allow_localhost, webhook_config
+      from neon_auth.project_config
+      limit 1
+  `;
+  const [schema] = await sql`
+    select
+      to_regclass('public.lmiere_wallets') is not null as wallets,
+      to_regclass('public.lmiere_email_events') is not null as email_events,
+      to_regprocedure('public.lmiere_reserve_generation_v2(text,uuid,text,text,text,integer,integer,integer,integer,integer)') is not null as guarded_reservations
+  `;
+  const [users] = await sql`
+    select
+      count(*)::integer as total,
+      count(*) filter (where "emailVerified" is true)::integer as verified
+      from neon_auth."user"
+  `;
+
+  return {
+    auth: {
+      requireEmailVerification: auth?.email_and_password?.requireEmailVerification === true,
+      verificationMethod: auth?.email_and_password?.emailVerificationMethod ?? null,
+      customEmailProvider: auth?.email_provider?.type === "custom",
+      localhostAllowed: auth?.allow_localhost === true,
+      authWebhookEnabled: auth?.webhook_config?.enabled === true,
+    },
+    schema,
+    users,
+  };
 }
 
 export async function markGenerationQueued(id, userId, providerRequestId) {

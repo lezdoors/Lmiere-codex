@@ -1,5 +1,5 @@
 import { nanoid } from "nanoid";
-import { requireUser } from "../_lib/auth.js";
+import { requireVerifiedUser } from "../_lib/auth.js";
 import {
   markGenerationQueued,
   releaseGeneration,
@@ -15,7 +15,7 @@ export default async function handler(request, response) {
   let generationId;
 
   try {
-    user = await requireUser(request);
+    user = await requireVerifiedUser(request);
     const body = readJsonBody(request);
     const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
     const outcome = typeof body.outcome === "string" ? body.outcome : "";
@@ -47,8 +47,8 @@ export default async function handler(request, response) {
         // Preserve the original provider or validation error.
       }
     }
-    const problem = error.statusCode === 401
-      ? { status: 401, message: error.message }
+    const problem = error.statusCode && error.statusCode < 500
+      ? { status: error.statusCode, message: error.message }
       : publicError(error);
     return sendJson(response, problem.status, { error: problem.message });
   }

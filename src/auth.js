@@ -21,6 +21,16 @@ export const authClient = authUrl
       signUp: {
         email: async (payload) => (await getAuthClient()).signUp.email(payload),
       },
+      emailOtp: {
+        verifyEmail: async (payload) => (await getAuthClient()).emailOtp.verifyEmail(payload),
+      },
+      sendVerificationEmail: async (payload) => (
+        await getAuthClient()
+      ).sendVerificationEmail(payload),
+      requestPasswordReset: async (payload) => (
+        await getAuthClient()
+      ).requestPasswordReset(payload),
+      resetPassword: async (payload) => (await getAuthClient()).resetPassword(payload),
       getSession: async () => (await getAuthClient()).getSession(),
       token: async () => (await getAuthClient()).token(),
       signOut: async () => (await getAuthClient()).signOut(),
@@ -42,6 +52,10 @@ export async function getSessionWithToken() {
     session: sessionResponse.data,
     token: tokenResponse?.data?.token ?? null,
   };
+}
+
+export function isVerifiedSession(session) {
+  return session?.user?.emailVerified === true;
 }
 
 export async function apiRequest(path, options = {}) {

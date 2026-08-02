@@ -1,4 +1,5 @@
 import { createRemoteJWKSet, jwtVerify } from "jose";
+import { db } from "./db.js";
 
 let jwks;
 
@@ -35,4 +36,59 @@ export async function requireUser(request) {
     error.statusCode = 401;
     throw error;
   }
+}
+
+export function emailList(value = "") {
+  return new Set(
+    value
+      .split(",")
+      .map((email) => email.trim().toLowerCase())
+      .filter(Boolean),
+  );
+}
+
+function accessError(message, statusCode, code) {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  error.code = code;
+  return error;
+}
+
+export async function requireVerifiedUser(request) {
+  const identity = await requireUser(request);
+  const sql = db();
+  const [record] = await sql`
+    select id, email, name, "emailVerified" as email_verified, coalesce(banned, false) as banned
+      from neon_auth."user"
+      where id = ${identity.id}::uuid
+      limit 1
+  `;
+
+  if (!record || record.banned) {
+    throw accessError("This account is not available.", 401, "account_unavailable");
+  }
+  if (record.email_verified !== true) {
+    throw accessError("Confirm your email before opening a wallet or starting a run.", 403, "email_verification_required");
+  }
+
+  const allowedEmails = emailList(process.env.LMIERE_ALLOWED_EMAILS);
+  if (allowedEmails.size > 0 && !allowedEmails.has(record.email.toLowerCase())) {
+    throw accessError("Lmiere is in a private beta. This email is not on the access list yet.", 403, "private_beta_only");
+  }
+
+  return {
+    ...identity,
+    email: record.email,
+    name: record.name ?? "",
+    emailVerified: true,
+  };
+}
+
+export async function requireAdminUser(request) {
+  const user = await requireVerifiedUser(request);
+  const administrators = emailList(process.env.LMIERE_ADMIN_EMAILS);
+  if (administrators.size === 0 || !administrators.has(user.email.toLowerCase())) {
+    throw accessError("Operator access is required.", 403, "operator_access_required");
+  }
+  return user;
 }

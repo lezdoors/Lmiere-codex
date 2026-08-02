@@ -9,7 +9,8 @@
     { "source": "/account", "destination": "/index.html" },
     { "source": "/runs/:path*", "destination": "/index.html" },
     { "source": "/privacy", "destination": "/index.html" },
-    { "source": "/terms", "destination": "/index.html" }
+    { "source": "/terms", "destination": "/index.html" },
+    { "source": "/reset-password", "destination": "/index.html" }
   ],
   "functions": {
     "api/**/*.js": {

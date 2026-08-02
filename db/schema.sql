@@ -61,6 +61,36 @@ create table if not exists public.lmiere_wallet_ledger (
 create index if not exists lmiere_wallet_ledger_user_created_idx
   on public.lmiere_wallet_ledger (user_id, created_at desc);
 
+create table if not exists public.lmiere_email_events (
+  id bigserial primary key,
+  user_id uuid not null references neon_auth."user"(id) on delete cascade,
+  kind text not null check (kind in ('welcome', 'founder_signup')),
+  recipient text not null,
+  status text not null default 'pending'
+    check (status in ('pending', 'sending', 'sent', 'failed', 'delivered', 'bounced', 'complained', 'suppressed')),
+  provider_id text,
+  attempts integer not null default 0 check (attempts >= 0),
+  last_error text,
+  next_attempt_at timestamptz,
+  sent_at timestamptz,
+  delivered_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (user_id, kind)
+);
+
+create unique index if not exists lmiere_email_events_provider_idx
+  on public.lmiere_email_events (provider_id)
+  where provider_id is not null;
+
+create table if not exists public.lmiere_email_webhook_events (
+  event_id text primary key,
+  provider_id text,
+  event_type text not null,
+  occurred_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
 create or replace function public.lmiere_ensure_wallet(
   p_user_id uuid,
   p_initial_credit_cents integer default 0
@@ -78,10 +108,12 @@ begin
   select email, coalesce(name, '')
     into v_email, v_name
     from neon_auth."user"
-    where id = p_user_id and coalesce(banned, false) = false;
+    where id = p_user_id
+      and coalesce(banned, false) = false
+      and "emailVerified" is true;
 
   if not found then
-    raise exception 'invalid_user' using errcode = 'P0001';
+    raise exception 'email_verification_required' using errcode = 'P0001';
   end if;
 
   insert into public.lmiere_profiles (user_id, email, display_name)
@@ -115,6 +147,103 @@ begin
     'balanceCents', v_wallet.balance_cents,
     'reservedCents', v_wallet.reserved_cents,
     'availableCents', v_wallet.balance_cents - v_wallet.reserved_cents
+  );
+end;
+$$;
+
+create or replace function public.lmiere_reserve_generation_v2(
+  p_generation_id text,
+  p_user_id uuid,
+  p_outcome text,
+  p_model text,
+  p_prompt text,
+  p_charge_cents integer,
+  p_initial_credit_cents integer default 0,
+  p_user_daily_limit_cents integer default 0,
+  p_global_daily_limit_cents integer default 0,
+  p_max_active_generations integer default 2
+) returns jsonb
+language plpgsql
+security definer
+set search_path = public, neon_auth
+as $$
+declare
+  v_wallet public.lmiere_wallets%rowtype;
+  v_generation public.lmiere_generations%rowtype;
+  v_user_daily_cents integer := 0;
+  v_global_daily_cents integer := 0;
+  v_active_generations integer := 0;
+  v_day_start timestamptz := date_trunc('day', now() at time zone 'UTC') at time zone 'UTC';
+begin
+  perform public.lmiere_ensure_wallet(p_user_id, p_initial_credit_cents);
+
+  -- One global lock makes daily cost caps reliable even when several users submit together.
+  perform pg_advisory_xact_lock(4152862001::bigint);
+
+  select * into v_wallet
+    from public.lmiere_wallets
+    where user_id = p_user_id
+    for update;
+
+  select count(*)::integer into v_active_generations
+    from public.lmiere_generations
+    where user_id = p_user_id
+      and status in ('reserved', 'queued', 'in_queue', 'in_progress');
+
+  if p_max_active_generations > 0 and v_active_generations >= p_max_active_generations then
+    raise exception 'too_many_active_generations' using errcode = 'P0001';
+  end if;
+
+  select coalesce(sum(charge_cents), 0)::integer into v_user_daily_cents
+    from public.lmiere_generations
+    where user_id = p_user_id
+      and created_at >= v_day_start
+      and status not in ('failed', 'cancelled');
+
+  if p_user_daily_limit_cents > 0
+     and v_user_daily_cents + p_charge_cents > p_user_daily_limit_cents then
+    raise exception 'user_daily_limit_reached' using errcode = 'P0001';
+  end if;
+
+  select coalesce(sum(charge_cents), 0)::integer into v_global_daily_cents
+    from public.lmiere_generations
+    where created_at >= v_day_start
+      and status not in ('failed', 'cancelled');
+
+  if p_global_daily_limit_cents > 0
+     and v_global_daily_cents + p_charge_cents > p_global_daily_limit_cents then
+    raise exception 'global_daily_limit_reached' using errcode = 'P0001';
+  end if;
+
+  if v_wallet.balance_cents - v_wallet.reserved_cents < p_charge_cents then
+    raise exception 'insufficient_credits' using errcode = 'P0001';
+  end if;
+
+  insert into public.lmiere_generations (
+    id, user_id, outcome, model, prompt, charge_cents
+  ) values (
+    p_generation_id, p_user_id, p_outcome, p_model, p_prompt, p_charge_cents
+  ) returning * into v_generation;
+
+  update public.lmiere_wallets
+    set reserved_cents = reserved_cents + p_charge_cents,
+        updated_at = now()
+    where user_id = p_user_id
+    returning * into v_wallet;
+
+  insert into public.lmiere_wallet_ledger (
+    user_id, generation_id, kind, reserved_delta_cents, note
+  ) values (
+    p_user_id, p_generation_id, 'reserve', p_charge_cents, 'Generation approved'
+  );
+
+  return jsonb_build_object(
+    'generation', to_jsonb(v_generation),
+    'wallet', jsonb_build_object(
+      'balanceCents', v_wallet.balance_cents,
+      'reservedCents', v_wallet.reserved_cents,
+      'availableCents', v_wallet.balance_cents - v_wallet.reserved_cents
+    )
   );
 end;
 $$;
@@ -295,6 +424,7 @@ $$;
 
 revoke execute on function public.lmiere_ensure_wallet(uuid, integer) from public;
 revoke execute on function public.lmiere_reserve_generation(text, uuid, text, text, text, integer, integer) from public;
+revoke execute on function public.lmiere_reserve_generation_v2(text, uuid, text, text, text, integer, integer, integer, integer, integer) from public;
 revoke execute on function public.lmiere_release_generation(text, uuid, text, text) from public;
 revoke execute on function public.lmiere_settle_generation(text, uuid, text, text, text, jsonb) from public;
 

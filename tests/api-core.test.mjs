@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { requireUser } from "../api/_lib/auth.js";
+import { emailList, requireUser } from "../api/_lib/auth.js";
+import {
+  globalDailyLimitCents,
+  maxActiveGenerations,
+  userDailyLimitCents,
+} from "../api/_lib/db.js";
+import { welcomeEmail } from "../api/_lib/email.js";
 import { extractMedia, OUTCOME_CONFIG, submitFal } from "../api/_lib/fal.js";
 import { publicError } from "../api/_lib/http.js";
 
@@ -47,9 +53,58 @@ test("API identity checks reject requests without a Neon bearer token", async ()
   );
 });
 
+test("private beta email lists are normalized and deduplicated", () => {
+  assert.deepEqual(
+    [...emailList(" Ryan@Example.com, hossam@example.com,ryan@example.com ")],
+    ["ryan@example.com", "hossam@example.com"],
+  );
+});
+
+test("beta spend protections have safe defaults and accept explicit zeroes", () => {
+  const previous = {
+    user: process.env.LMIERE_DAILY_USER_LIMIT_CENTS,
+    global: process.env.LMIERE_DAILY_GLOBAL_LIMIT_CENTS,
+    active: process.env.LMIERE_MAX_ACTIVE_GENERATIONS,
+  };
+  delete process.env.LMIERE_DAILY_USER_LIMIT_CENTS;
+  delete process.env.LMIERE_DAILY_GLOBAL_LIMIT_CENTS;
+  delete process.env.LMIERE_MAX_ACTIVE_GENERATIONS;
+  assert.equal(userDailyLimitCents(), 500);
+  assert.equal(globalDailyLimitCents(), 2000);
+  assert.equal(maxActiveGenerations(), 2);
+
+  process.env.LMIERE_DAILY_USER_LIMIT_CENTS = "0";
+  process.env.LMIERE_DAILY_GLOBAL_LIMIT_CENTS = "0";
+  process.env.LMIERE_MAX_ACTIVE_GENERATIONS = "0";
+  assert.equal(userDailyLimitCents(), 0);
+  assert.equal(globalDailyLimitCents(), 0);
+  assert.equal(maxActiveGenerations(), 0);
+
+  for (const [key, value] of Object.entries({
+    LMIERE_DAILY_USER_LIMIT_CENTS: previous.user,
+    LMIERE_DAILY_GLOBAL_LIMIT_CENTS: previous.global,
+    LMIERE_MAX_ACTIVE_GENERATIONS: previous.active,
+  })) {
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
+  }
+});
+
+test("welcome email is branded, reply-friendly, and escapes account names", () => {
+  const email = welcomeEmail({ name: "<Ryan>" });
+  assert.match(email.subject, /verified/i);
+  assert.match(email.text, /https:\/\/lmiere.com\/studio/);
+  assert.doesNotMatch(email.html, /<Ryan>/);
+  assert.match(email.html, /&lt;Ryan&gt;/);
+});
+
 test("wallet errors become stable user-facing responses", () => {
   assert.deepEqual(publicError(new Error("insufficient_credits")), {
     status: 402,
     message: "This wallet does not have enough credits for that run.",
+  });
+  assert.deepEqual(publicError(new Error("user_daily_limit_reached")), {
+    status: 429,
+    message: "This account reached its daily beta limit. Try again tomorrow.",
   });
 });

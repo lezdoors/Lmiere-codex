@@ -24,6 +24,7 @@ import {
   authClient,
   getSessionWithToken,
   isAuthConfigured,
+  isVerifiedSession,
 } from "./auth.js";
 
 const OUTCOMES = [
@@ -90,6 +91,7 @@ function routeFromPath(pathname = "/") {
   if (path === "/account") return { name: "account", path };
   if (path === "/privacy") return { name: "privacy", path };
   if (path === "/terms") return { name: "terms", path };
+  if (path === "/reset-password") return { name: "reset-password", path };
   if (path.startsWith("/runs/")) {
     return { name: "run", path, id: decodeURIComponent(path.slice("/runs/".length)) };
   }
@@ -274,12 +276,41 @@ function AuthPanel({ session, account, onAuthenticated, onSignOut }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [verificationEmail, setVerificationEmail] = useState("");
+  const [verificationCode, setVerificationCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+
+  async function requestVerificationCode(targetEmail) {
+    const response = await authClient.sendVerificationEmail({
+      email: targetEmail,
+      callbackURL: `${window.location.origin}/account`,
+    });
+    if (response?.error) throw new Error(response.error.message ?? "The verification code could not be sent.");
+  }
+
+  async function enterVerification(targetEmail, requestCode = true) {
+    const normalizedEmail = targetEmail.trim().toLowerCase();
+    setVerificationEmail(normalizedEmail);
+    setVerificationCode("");
+    setMode("verify");
+    setError("");
+    setNotice(requestCode ? "Sending a fresh verification code…" : "Enter the verification code from your email.");
+
+    if (!requestCode) return;
+    try {
+      await requestVerificationCode(normalizedEmail);
+      setNotice(`A verification code was sent to ${normalizedEmail}. It expires in 15 minutes.`);
+    } catch {
+      setNotice("Your account was created. Request a new code below to finish verification.");
+    }
+  }
 
   async function submit(event) {
     event.preventDefault();
     setError("");
+    setNotice("");
 
     if (!authClient) {
       setError("Account access is not configured for this environment.");
@@ -303,6 +334,12 @@ function AuthPanel({ session, account, onAuthenticated, onSignOut }) {
         : await authClient.signIn.email({ email: email.trim(), password });
 
       if (response?.error) throw new Error(response.error.message ?? "Authentication failed.");
+      if (response?.data?.user && response.data.user.emailVerified !== true) {
+        setPassword("");
+        setConfirmPassword("");
+        await enterVerification(response.data.user.email || email, true);
+        return;
+      }
       await onAuthenticated();
     } catch (authError) {
       const message = authError instanceof Error ? authError.message : "Authentication failed.";
@@ -310,9 +347,73 @@ function AuthPanel({ session, account, onAuthenticated, onSignOut }) {
         setError("Use at least 8 characters for your password.");
       } else if (/already exists|already registered/i.test(message)) {
         setError("An account with this email already exists. Sign in instead.");
+      } else if (/verify|verification|not verified/i.test(message) && email.trim()) {
+        await enterVerification(email, true);
       } else {
         setError(message);
       }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function verifyEmail(event) {
+    event.preventDefault();
+    setError("");
+    setNotice("");
+
+    if (!/^\d{6}$/.test(verificationCode.trim())) {
+      setError("Enter the six-digit code from your email.");
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const response = await authClient.emailOtp.verifyEmail({
+        email: verificationEmail,
+        otp: verificationCode.trim(),
+      });
+      if (response?.error) throw new Error(response.error.message ?? "The verification code was not accepted.");
+      setNotice("Email verified. Connecting your private account…");
+      await onAuthenticated();
+    } catch (verificationError) {
+      const message = verificationError instanceof Error
+        ? verificationError.message
+        : "The verification code was not accepted.";
+      setError(/expired/i.test(message) ? "That code expired. Request a new one below." : message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function resendVerification() {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await requestVerificationCode(verificationEmail);
+      setNotice(`A new code was sent to ${verificationEmail}. It expires in 15 minutes.`);
+    } catch (verificationError) {
+      setError(verificationError instanceof Error ? verificationError.message : "The code could not be sent.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function requestPasswordReset(event) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const response = await authClient.requestPasswordReset({
+        email: email.trim().toLowerCase(),
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (response?.error) throw new Error(response.error.message ?? "The reset email could not be sent.");
+      setNotice("If this email has a Lmiere account, a password-reset link is on the way. The link expires in 15 minutes.");
+    } catch {
+      setNotice("If this email has a Lmiere account, a password-reset link is on the way. The link expires in 15 minutes.");
     } finally {
       setBusy(false);
     }
@@ -334,6 +435,96 @@ function AuthPanel({ session, account, onAuthenticated, onSignOut }) {
           Sign out <SignOut size={17} />
         </button>
         <small>Every account has its own wallet, archive, and generation history.</small>
+      </div>
+    );
+  }
+
+  if (mode === "verify") {
+    return (
+      <div className="panel-content sign-in-content verification-content">
+        <ShieldCheck size={36} weight="light" />
+        <p className="panel-kicker">Confirm your email</p>
+        <h2>One code. Your account stays yours.</h2>
+        <p>We only open a wallet after the address belongs to you.</p>
+
+        <form className="auth-form" onSubmit={verifyEmail}>
+          <label>
+            <span>Six-digit code</span>
+            <input
+              className="verification-code-input"
+              type="text"
+              value={verificationCode}
+              onChange={(event) => setVerificationCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
+              autoComplete="one-time-code"
+              inputMode="numeric"
+              pattern="[0-9]{6}"
+              maxLength={6}
+              required
+              autoFocus
+            />
+          </label>
+          {notice && <p className="auth-notice" role="status">{notice}</p>}
+          {error && <p className="auth-error" role="alert">{error}</p>}
+          <button className="panel-action" type="submit" disabled={busy || verificationCode.length !== 6}>
+            {busy ? <><CircleNotch className="spin" size={17} /> Verifying</> : <><Check size={17} /> Verify email</>}
+          </button>
+        </form>
+
+        <button className="auth-mode-button" type="button" onClick={resendVerification} disabled={busy}>
+          Send a new code
+        </button>
+        <button
+          className="auth-mode-button auth-back-button"
+          type="button"
+          onClick={() => {
+            setMode("sign-in");
+            setVerificationCode("");
+            setError("");
+            setNotice("");
+          }}
+        >
+          Use a different email
+        </button>
+      </div>
+    );
+  }
+
+  if (mode === "forgot") {
+    return (
+      <div className="panel-content sign-in-content verification-content">
+        <LockKey size={36} weight="light" />
+        <p className="panel-kicker">Recover account</p>
+        <h2>Reset the key. Keep the archive.</h2>
+        <p>We will send a short-lived reset link to the address attached to your account.</p>
+        <form className="auth-form" onSubmit={requestPasswordReset}>
+          <label>
+            <span>Email</span>
+            <input
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              autoComplete="email"
+              required
+              autoFocus
+            />
+          </label>
+          {notice && <p className="auth-notice" role="status">{notice}</p>}
+          {error && <p className="auth-error" role="alert">{error}</p>}
+          <button className="panel-action" type="submit" disabled={busy || !email.trim()}>
+            {busy ? <><CircleNotch className="spin" size={17} /> Sending</> : <>Send reset link <ArrowRight size={17} /></>}
+          </button>
+        </form>
+        <button
+          className="auth-mode-button"
+          type="button"
+          onClick={() => {
+            setMode("sign-in");
+            setError("");
+            setNotice("");
+          }}
+        >
+          Return to sign in
+        </button>
       </div>
     );
   }
@@ -394,6 +585,7 @@ function AuthPanel({ session, account, onAuthenticated, onSignOut }) {
           </label>
         )}
         {error && <p className="auth-error" role="alert">{error}</p>}
+        {notice && <p className="auth-notice" role="status">{notice}</p>}
         <button className="panel-action" type="submit" disabled={busy || !isAuthConfigured}>
           {busy ? <><CircleNotch className="spin" size={17} /> Connecting</> : (
             <>{mode === "sign-up" ? "Create account" : "Sign in"} <ArrowRight size={17} /></>
@@ -408,10 +600,24 @@ function AuthPanel({ session, account, onAuthenticated, onSignOut }) {
           setMode((value) => value === "sign-in" ? "sign-up" : "sign-in");
           setConfirmPassword("");
           setError("");
+          setNotice("");
         }}
       >
         {mode === "sign-in" ? "First visit? Create an account" : "Already registered? Sign in"}
       </button>
+      {mode === "sign-in" && (
+        <button
+          className="auth-mode-button auth-back-button"
+          type="button"
+          onClick={() => {
+            setMode("forgot");
+            setError("");
+            setNotice("");
+          }}
+        >
+          Forgot your password?
+        </button>
+      )}
       <small>Secure sign-in protects your private archive and available balance.</small>
     </div>
   );
@@ -1207,10 +1413,12 @@ const LEGAL_COPY = {
     summary: "This notice explains the information Lmiere keeps during the beta and why it is needed to operate private accounts, balances, and generations.",
     sections: [
       ["Information kept with your account", "Lmiere stores the account details needed for sign-in, your wallet balance and ledger, generation prompts, status records, prices, and completed result links."],
-      ["How the information is used", "The information is used to authenticate you, isolate your credits and archive, submit requested generations, return results, prevent abuse, and keep the service reliable."],
+      ["How the information is used", "The information is used to verify and authenticate you, isolate your credits and archive, send essential account email, submit requested generations, return results, prevent abuse, and keep the service reliable."],
       ["Generation providers", "Prompts and generation settings are sent to infrastructure providers only when needed to complete the run you requested. Provider names and model details stay outside the everyday interface."],
+      ["Service providers", "Lmiere uses specialist providers for authentication, database hosting, generation, media storage, transactional email, and—before paid launch—payment processing. They receive only the information needed to provide their part of the service."],
       ["Retention and account control", "Run and wallet records remain attached to your account so the archive and billing history stay accurate. Account export and deletion controls will be finalized before the beta opens broadly."],
       ["Security boundary", "Provider credentials and database credentials remain on the server. They are never sent to the browser. No online service can promise absolute security, so access is limited to what the product needs."],
+      ["Privacy requests", "For access, correction, deletion, or other privacy questions, email privacy@lmiere.com. Security concerns can be sent to security@lmiere.com."],
     ],
   },
   terms: {
@@ -1223,6 +1431,7 @@ const LEGAL_COPY = {
       ["Your prompts and results", "You remain responsible for the prompts you submit and how you use generated results. Do not submit material you do not have the right to use or content that violates applicable law."],
       ["Acceptable use", "Do not use Lmiere to harm people, impersonate others deceptively, exploit minors, create illegal content, attack systems, evade safeguards, or interfere with another member’s account."],
       ["Availability and limits", "Generation systems can fail, queue, or return unexpected results. Lmiere will make reasonable efforts to release charges for incomplete runs but does not guarantee continuous availability or a particular creative result."],
+      ["Contact", "Account and product questions can be sent to support@lmiere.com. Billing questions can be sent to billing@lmiere.com."],
       ["Before public launch", "These terms are a beta operating draft and should receive legal review before paid credits or unrestricted public access are enabled."],
     ],
   },
@@ -1260,6 +1469,75 @@ function NotFoundScreen({ onNavigate }) {
   );
 }
 
+function ResetPasswordScreen({ onNavigate, onOpenPanel }) {
+  const token = new URLSearchParams(window.location.search).get("token") || "";
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(token ? "" : "This reset link is missing its security token.");
+  const [complete, setComplete] = useState(false);
+
+  async function submit(event) {
+    event.preventDefault();
+    setError("");
+    if (password.length < 8) {
+      setError("Use at least 8 characters for your new password.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("The passwords do not match.");
+      return;
+    }
+    if (!token || !authClient) {
+      setError("This reset link is not valid. Request a new link from sign in.");
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const response = await authClient.resetPassword({ newPassword: password, token });
+      if (response?.error) throw new Error(response.error.message ?? "The password could not be reset.");
+      setComplete(true);
+      window.history.replaceState({}, "", "/reset-password");
+    } catch (resetError) {
+      const message = resetError instanceof Error ? resetError.message : "The password could not be reset.";
+      setError(/expired|token|invalid/i.test(message) ? "This link expired or was already used. Request a new one from sign in." : message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <main className="reset-password-screen network-page">
+      <button className="network-wordmark" type="button" onClick={() => onNavigate("/")}><BrandMark dark /> Lmiere</button>
+      <section className="reset-password-card">
+        <div><p>// Account recovery</p><h1>{complete ? "Key reset." : "Set a new key."}</h1></div>
+        {complete ? (
+          <>
+            <p>Your password is updated. Sign in again to reconnect the verified account and its private archive.</p>
+            <button className="panel-action" type="button" onClick={() => onOpenPanel("Sign in")}>Return to sign in <ArrowRight size={17} /></button>
+          </>
+        ) : (
+          <form className="auth-form" onSubmit={submit}>
+            <label>
+              <span>New password</span>
+              <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" minLength={8} required />
+            </label>
+            <label>
+              <span>Confirm new password</span>
+              <input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} autoComplete="new-password" minLength={8} required />
+            </label>
+            {error && <p className="auth-error" role="alert">{error}</p>}
+            <button className="panel-action" type="submit" disabled={busy || !token}>
+              {busy ? <><CircleNotch className="spin" size={17} /> Resetting</> : <>Reset password <ArrowRight size={17} /></>}
+            </button>
+          </form>
+        )}
+      </section>
+    </main>
+  );
+}
+
 export function App() {
   const [route, setRoute] = useState(() => routeFromPath(window.location.pathname));
   const [panel, setPanel] = useState(null);
@@ -1289,9 +1567,11 @@ export function App() {
 
   const refreshIdentity = useCallback(async () => {
     const identity = await getSessionWithToken();
-    setSession(identity.session);
-    if (identity.session?.user) await refreshAccount();
-    else {
+    if (isVerifiedSession(identity.session)) {
+      setSession(identity.session);
+      await refreshAccount();
+    } else {
+      setSession(null);
       setAccount(null);
       setRuns([]);
       setLedger([]);
@@ -1326,6 +1606,7 @@ export function App() {
       account: "Account — Lmiere",
       privacy: "Privacy — Lmiere",
       terms: "Terms — Lmiere",
+      "reset-password": "Reset password — Lmiere",
       "not-found": "Not found — Lmiere",
     }[route.name];
     document.title = title;
@@ -1394,6 +1675,8 @@ export function App() {
     page = <RunScreen id={route.id} session={session} account={account} runs={runs} onNavigate={navigate} onOpenPanel={openPanel} onRemix={remixRun} />;
   } else if (route.name === "privacy" || route.name === "terms") {
     page = <LegalScreen type={route.name} onNavigate={navigate} />;
+  } else if (route.name === "reset-password") {
+    page = <ResetPasswordScreen onNavigate={navigate} onOpenPanel={openPanel} />;
   } else {
     page = <NotFoundScreen onNavigate={navigate} />;
   }

@@ -1,4 +1,4 @@
-import { requireUser } from "../_lib/auth.js";
+import { requireVerifiedUser } from "../_lib/auth.js";
 import {
   getGeneration,
   mapGeneration,
@@ -19,7 +19,7 @@ export default async function handler(request, response) {
   if (request.method !== "GET") return methodNotAllowed(response, ["GET"]);
 
   try {
-    const user = await requireUser(request);
+    const user = await requireVerifiedUser(request);
     const id = requestId(request);
     const record = await getGeneration(id, user.id);
 
@@ -76,8 +76,8 @@ export default async function handler(request, response) {
     });
     return sendJson(response, 200, { generation });
   } catch (error) {
-    const problem = error.statusCode === 401
-      ? { status: 401, message: error.message }
+    const problem = error.statusCode && error.statusCode < 500
+      ? { status: error.statusCode, message: error.message }
       : publicError(error);
     return sendJson(response, problem.status, { error: problem.message });
   }

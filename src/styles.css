@@ -1575,6 +1575,26 @@ textarea:disabled {
   line-height: 1.55;
 }
 
+.auth-notice {
+  margin: 0;
+  border-left: 2px solid var(--blue);
+  padding: 8px 10px;
+  color: var(--signal);
+  background: rgba(41, 63, 255, 0.08);
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.auth-form .verification-code-input {
+  min-height: 62px;
+  padding-left: 18px;
+  color: var(--sulfur);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 26px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.42em;
+}
+
 .auth-mode-button {
   appearance: none;
   border: 0;
@@ -1589,6 +1609,16 @@ textarea:disabled {
 
 .auth-mode-button:hover {
   color: var(--sulfur);
+}
+
+.auth-mode-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.auth-back-button {
+  margin-top: 6px;
+  border-bottom-color: transparent;
 }
 
 .account-balance {
@@ -2049,6 +2079,63 @@ textarea:disabled {
   color: var(--signal);
   background: var(--night);
   border: 8px solid #020b09;
+}
+
+.reset-password-screen {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 100px 22px 55px;
+  background:
+    radial-gradient(circle at 72% 18%, rgba(45, 60, 255, 0.24), transparent 34%),
+    var(--night);
+}
+
+.network-wordmark {
+  position: absolute;
+  top: 26px;
+  left: 28px;
+  border: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--signal);
+  background: transparent;
+  font-family: "Bodoni Moda", serif;
+  font-size: 21px;
+  cursor: pointer;
+}
+
+.reset-password-card {
+  width: min(620px, 100%);
+  border: 1px solid var(--signal-faint);
+  padding: clamp(28px, 6vw, 64px);
+  background: rgba(4, 17, 14, 0.9);
+  box-shadow: 22px 22px 0 rgba(45, 60, 255, 0.12);
+}
+
+.reset-password-card > div > p {
+  margin: 0 0 18px;
+  color: var(--sulfur);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.reset-password-card h1 {
+  margin: 0;
+  font-family: "Bodoni Moda", serif;
+  font-size: clamp(54px, 9vw, 86px);
+  font-weight: 400;
+  line-height: 0.9;
+  letter-spacing: -0.055em;
+}
+
+.reset-password-card > p {
+  margin: 28px 0 0;
+  color: var(--signal-muted);
+  font-size: 12px;
+  line-height: 1.8;
 }
 
 .account-page-body {
