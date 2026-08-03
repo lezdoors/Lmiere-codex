@@ -21,3 +21,10 @@ test("mobile outcome cards cannot widen the page in translated languages", () =>
     /@media \(max-width: 860px\)[\s\S]*?\.landing-outcome-card h3\s*\{[^}]*overflow-wrap:\s*anywhere;/,
   );
 });
+
+test("the Phosphor record follows the mobile media height", () => {
+  assert.match(
+    styles,
+    /@media \(max-width: 860px\)[\s\S]*?\.field-record \.signal-image,\s*\.field-record \.ascii-signal-frame\s*\{[^}]*height:\s*420px;/,
+  );
+});

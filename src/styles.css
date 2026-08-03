@@ -213,6 +213,31 @@ textarea:disabled {
   height: 39px;
 }
 
+.brand-star-cluster {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: brand-star-awaken 9s cubic-bezier(0.65, 0, 0.2, 1) infinite;
+  will-change: transform;
+}
+
+.brand-star-glint {
+  fill: #fff;
+  opacity: 0;
+  animation: brand-star-glint 9s ease-in-out infinite;
+}
+
+button:hover .brand-star-cluster,
+button:focus-visible .brand-star-cluster,
+.landing-site-footer > div:hover .brand-star-cluster {
+  animation: brand-star-turn 720ms cubic-bezier(0.2, 0.75, 0.2, 1) both;
+}
+
+button:hover .brand-star-glint,
+button:focus-visible .brand-star-glint,
+.landing-site-footer > div:hover .brand-star-glint {
+  animation: brand-star-hover-glint 720ms ease-out both;
+}
+
 .landing-meta {
   display: grid;
   grid-template-columns: repeat(2, minmax(150px, 1fr));
@@ -710,12 +735,47 @@ textarea:disabled {
   background: var(--paper-light);
 }
 
-.field-record .signal-image {
+.field-record .signal-image,
+.field-record .ascii-signal-frame {
   height: clamp(390px, 51vw, 720px);
 }
 
-.field-record-specimen .signal-image-base {
-  object-position: 58% center;
+.field-record-phosphor {
+  border-color: rgba(77, 223, 137, 0.72);
+  color: #b7ffd2;
+  background: #020a07;
+}
+
+.field-record-phosphor figcaption {
+  border-top-color: rgba(77, 223, 137, 0.72);
+}
+
+.ascii-signal-frame {
+  position: relative;
+  overflow: hidden;
+  background: #020a07;
+  cursor: crosshair;
+}
+
+.ascii-signal-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.ascii-signal-label {
+  position: absolute;
+  top: 14px;
+  left: 15px;
+  border: 1px solid rgba(183, 255, 210, 0.5);
+  padding: 6px 8px;
+  color: rgba(183, 255, 210, 0.76);
+  background: rgba(2, 10, 7, 0.62);
+  font-size: 7px;
+  line-height: 1;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  pointer-events: none;
 }
 
 .field-record figcaption {
@@ -3137,6 +3197,30 @@ textarea:disabled {
   to { transform: rotate(360deg); }
 }
 
+@keyframes brand-star-awaken {
+  0%, 73% { transform: rotate(0deg) scale(1); }
+  78% { transform: rotate(-16deg) scale(1.08); }
+  85% { transform: rotate(184deg) scale(0.94); }
+  92%, 100% { transform: rotate(360deg) scale(1); }
+}
+
+@keyframes brand-star-glint {
+  0%, 76%, 91%, 100% { opacity: 0; }
+  82% { opacity: 0.92; }
+  87% { opacity: 0.18; }
+}
+
+@keyframes brand-star-turn {
+  0% { transform: rotate(0deg) scale(1); }
+  46% { transform: rotate(164deg) scale(1.12); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+@keyframes brand-star-hover-glint {
+  0%, 100% { opacity: 0; }
+  43% { opacity: 1; }
+}
+
 @media (max-width: 1180px) {
   .landing-header {
     grid-template-columns: minmax(220px, 1fr) 1fr auto;
@@ -3390,7 +3474,8 @@ textarea:disabled {
     grid-template-columns: 1fr;
   }
 
-  .field-record .signal-image {
+  .field-record .signal-image,
+  .field-record .ascii-signal-frame {
     height: 420px;
   }
 
@@ -3784,6 +3869,15 @@ textarea:disabled {
 
   .signal-image-warp {
     display: none;
+  }
+
+  .brand-star-cluster,
+  .brand-star-glint,
+  button:hover .brand-star-cluster,
+  button:focus-visible .brand-star-cluster,
+  button:hover .brand-star-glint,
+  button:focus-visible .brand-star-glint {
+    animation: none;
   }
 
   .account-signal-video {

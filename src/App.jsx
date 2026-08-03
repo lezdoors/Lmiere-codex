@@ -28,6 +28,7 @@ import {
   isVerifiedSession,
 } from "./auth.js";
 import { isFullName, normalizeFullName } from "./account-validation.js";
+import AsciiSignal from "./AsciiSignal.jsx";
 import { LanguageSwitch, localizeError, useLanguage } from "./i18n.jsx";
 
 const OUTCOMES = [
@@ -126,7 +127,10 @@ function BrandMark({ dark = false }) {
     <svg className={`brand-seal ${dark ? "brand-seal-dark" : ""}`} viewBox="0 0 51 51" aria-hidden="true">
       <path fillRule="evenodd" clipRule="evenodd" d="M0 0H51V51H0ZM2 2V49H49V2Z" />
       <path d="M44.32574462890625 0V14.25604248046875H223.6187744140625V1485.7439575195312H44.32574462890625V1500H593.6187744140625V1485.7439575195312H414.6187744140625V14.25604248046875H723.6187744140625Q841.6187744140625 14.25604248046875 914.7396850585938 46.2908935546875Q987.860595703125 78.32574462890625 1026.8349914550781 136.7745361328125Q1065.8093872070312 195.22332763671875 1079.9302978515625 275.1116638183594Q1094.0512084960938 355 1094.0512084960938 450H1108.6002807617188V0Z" transform="translate(10.61175 36.0125) scale(.0145 -.0145)" />
-      <path d="M208,144a15.78,15.78,0,0,1-10.42,14.94L146,178l-19,51.62a15.92,15.92,0,0,1-29.88,0L78,178l-51.62-19a15.92,15.92,0,0,1,0-29.88L78,110l19-51.62a15.92,15.92,0,0,1,29.88,0L146,110l51.62,19A15.78,15.78,0,0,1,208,144ZM152,48h16V64a8,8,0,0,0,16,0V48h16a8,8,0,0,0,0-16H184V16a8,8,0,0,0-16,0V32H152a8,8,0,0,0,0,16Zm88,32h-8V72a8,8,0,0,0-16,0v8h-8a8,8,0,0,0,0,16h8v8a8,8,0,0,0,16,0V96h8a8,8,0,0,0,0-16Z" transform="translate(29.38825 20) scale(.04296875)" />
+      <g className="brand-star-cluster">
+        <path d="M208,144a15.78,15.78,0,0,1-10.42,14.94L146,178l-19,51.62a15.92,15.92,0,0,1-29.88,0L78,178l-51.62-19a15.92,15.92,0,0,1,0-29.88L78,110l19-51.62a15.92,15.92,0,0,1,29.88,0L146,110l51.62,19A15.78,15.78,0,0,1,208,144ZM152,48h16V64a8,8,0,0,0,16,0V48h16a8,8,0,0,0,0-16H184V16a8,8,0,0,0-16,0V32H152a8,8,0,0,0,0,16Zm88,32h-8V72a8,8,0,0,0-16,0v8h-8a8,8,0,0,0,0,16h8v8a8,8,0,0,0,16,0V96h8a8,8,0,0,0,0-16Z" transform="translate(29.38825 20) scale(.04296875)" />
+        <path className="brand-star-glint" d="M208,144a15.78,15.78,0,0,1-10.42,14.94L146,178l-19,51.62a15.92,15.92,0,0,1-29.88,0L78,178l-51.62-19a15.92,15.92,0,0,1,0-29.88L78,110l19-51.62a15.92,15.92,0,0,1,29.88,0L146,110l51.62,19A15.78,15.78,0,0,1,208,144ZM152,48h16V64a8,8,0,0,0,16,0V48h16a8,8,0,0,0,0-16H184V16a8,8,0,0,0-16,0V32H152a8,8,0,0,0,0,16Zm88,32h-8V72a8,8,0,0,0-16,0v8h-8a8,8,0,0,0,0,16h8v8a8,8,0,0,0,16,0V96h8a8,8,0,0,0,0-16Z" transform="translate(29.38825 20) scale(.04296875)" />
+      </g>
     </svg>
   );
 }
@@ -884,9 +888,12 @@ function LandingScreen({ onEnterStudio, onOpenPanel, onNavigate, session }) {
             <SignalImage src="/assets/lmiere-result-cabin.webp" alt="A glass cabin glowing in a wet forest, shown as a completed generation" />
             <figcaption><span>Record LM–029</span><strong>{t("A memory of rain inside a glass house")}</strong><small>{t("Cinematic motion")} / {formatPrice(0.42)}</small></figcaption>
           </figure>
-          <figure className="field-record field-record-specimen">
-            <SignalImage src="/assets/lmiere-specimen-awake.webp" alt="A luminous neural specimen bridging an archival drawing and a living network" />
-            <figcaption><span>Specimen LM–001</span><strong>{t("The network, awake")}</strong><small>{t("Highest quality")} / {formatPrice(0.76)}</small></figcaption>
+          <figure className="field-record field-record-phosphor">
+            <AsciiSignal
+              src="/assets/lmiere-phosphor-source.webp"
+              alt={t("A flower study rendered as a living green phosphor character field")}
+            />
+            <figcaption><span>Specimen LM–088</span><strong>{t("Phosphor bloom")}</strong><small>{t("Highest quality")} / {formatPrice(0.76)}</small></figcaption>
           </figure>
         </div>
       </section>

@@ -58,6 +58,8 @@ const fr = {
   "Every completed run returns as a private record: the result, the prompt that made it, the route used, and the exact amount charged.": "Chaque génération terminée devient une archive privée : le résultat, le prompt qui l'a créée, la voie utilisée et le montant exact facturé.",
   "A memory of rain inside a glass house": "Le souvenir de la pluie dans une maison de verre",
   "The network, awake": "Le réseau, éveillé",
+  "Phosphor bloom": "Floraison phosphore",
+  "A flower study rendered as a living green phosphor character field": "Une étude florale rendue sous forme d'un champ vivant de caractères au phosphore vert",
   "Power without": "La puissance sans",
   "the control room.": "la salle de contrôle.",
   "No subscription maze. No model directory. No shared team balance. The essential decisions stay visible and the infrastructure disappears.": "Pas de labyrinthe d'abonnements. Pas de catalogue de modèles. Pas de solde d'équipe partagé. Les décisions essentielles restent visibles et l'infrastructure disparaît.",
