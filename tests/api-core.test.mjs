@@ -113,6 +113,23 @@ test("founder gift email includes the isolated wallet credit and message", () =>
   assert.match(email.html, /Founder transmission/);
 });
 
+test("French accounts receive a localized welcome and founder gift", () => {
+  const email = welcomeEmail({
+    name: "Hossam",
+    language: "fr",
+    gift: {
+      fromName: "Naoufal",
+      creditCents: 500,
+      message: "Naoufal split the photon budget 50/50. Spend your half wisely—the pixels have accountants now.",
+    },
+  });
+  assert.match(email.subject, /cadeau de fondateur/i);
+  assert.match(email.text, /5,00\s\$US/);
+  assert.match(email.text, /même les pixels/);
+  assert.match(email.html, /lang="fr"/);
+  assert.match(email.html, /Ouvrir le studio/);
+});
+
 test("wallet errors become stable user-facing responses", () => {
   assert.deepEqual(publicError(new Error("insufficient_credits")), {
     status: 402,

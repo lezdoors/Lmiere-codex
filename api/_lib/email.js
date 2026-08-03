@@ -30,9 +30,9 @@ function firstName(name = "") {
   return name.trim().split(/\s+/)[0] || "there";
 }
 
-function emailShell({ eyebrow, heading, copy, actionLabel, actionUrl, footer }) {
+function emailShell({ eyebrow, heading, copy, actionLabel, actionUrl, footer, language = "en" }) {
   return `<!doctype html>
-<html lang="en">
+<html lang="${language}">
   <body style="margin:0;background:#f2efe5;color:#111826;font-family:Arial,Helvetica,sans-serif;">
     <div style="display:none;max-height:0;overflow:hidden;">${escapeHtml(copy)}</div>
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f2efe5;padding:32px 14px;">
@@ -40,7 +40,7 @@ function emailShell({ eyebrow, heading, copy, actionLabel, actionUrl, footer }) 
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;border:1px solid #111826;background:#fffdf6;">
           <tr>
             <td style="padding:18px 24px;border-bottom:1px solid #111826;font-family:Courier New,monospace;font-size:12px;letter-spacing:.12em;text-transform:uppercase;">
-              Lmiere <span style="float:right;color:#3446ff;">Signal / verified</span>
+              Lmiere <span style="float:right;color:#3446ff;">${language === "fr" ? "Signal / vérifié" : "Signal / verified"}</span>
             </td>
           </tr>
           <tr>
@@ -53,7 +53,7 @@ function emailShell({ eyebrow, heading, copy, actionLabel, actionUrl, footer }) 
           </tr>
           <tr>
             <td style="padding:18px 24px;border-top:1px solid #111826;color:#6a7079;font-family:Courier New,monospace;font-size:10px;line-height:1.6;">
-              ${escapeHtml(footer)}<br />Lmiere · Pay only when you generate
+              ${escapeHtml(footer)}<br />Lmiere · ${language === "fr" ? "Payez seulement quand vous générez" : "Pay only when you generate"}
             </td>
           </tr>
         </table>
@@ -63,15 +63,44 @@ function emailShell({ eyebrow, heading, copy, actionLabel, actionUrl, footer }) 
 </html>`;
 }
 
-function formatCredit(cents) {
-  return `$${(cents / 100).toFixed(2)}`;
+function formatCredit(cents, language = "en") {
+  return new Intl.NumberFormat(language === "fr" ? "fr-FR" : "en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+  }).format(cents / 100);
 }
 
-export function welcomeEmail({ name, gift = null }) {
+function frenchGiftMessage(message = "") {
+  if (message === "Naoufal split the photon budget 50/50. Spend your half wisely—the pixels have accountants now.") {
+    return "Naoufal a partagé le budget photons 50/50. Dépense ta moitié sagement : même les pixels ont maintenant des comptables.";
+  }
+  return message;
+}
+
+export function welcomeEmail({ name, gift = null, language = "en" }) {
   const greeting = firstName(name);
+  const isFrench = language === "fr";
   const giftLine = gift
-    ? `${gift.fromName} left ${formatCredit(gift.creditCents)} in your private wallet. ${gift.message}`
+    ? isFrench
+      ? `${gift.fromName} a déposé ${formatCredit(gift.creditCents, language)} dans votre portefeuille privé. ${frenchGiftMessage(gift.message)}`
+      : `${gift.fromName} left ${formatCredit(gift.creditCents, language)} in your private wallet. ${gift.message}`
     : null;
+  if (isFrench) {
+    return {
+      subject: gift ? `${gift.fromName} vous a laissé un cadeau de fondateur Lmiere` : "Votre compte Lmiere est vérifié",
+      text: `Bienvenue chez Lmiere, ${greeting}. ${giftLine || "Votre portefeuille privé et vos archives de génération sont prêts."} Ouvrir le studio : https://lmiere.com/studio\n\nUne question ? Répondez directement à cet e-mail.`,
+      html: emailShell({
+        language,
+        eyebrow: gift ? "Transmission du fondateur" : "Compte confirmé",
+        heading: gift ? `Un signal pour vous, ${greeting}.` : `Bienvenue sur le terrain, ${greeting}.`,
+        copy: giftLine || "Votre portefeuille privé et vos archives de génération sont prêts. Chaque génération, résultat et mouvement de crédit reste désormais lié à ce compte vérifié.",
+        actionLabel: "Ouvrir le studio",
+        actionUrl: "https://lmiere.com/studio",
+        footer: "Une question ou quelque chose d'inattendu ? Répondez à cet e-mail : un humain vous lira.",
+      }),
+    };
+  }
   return {
     subject: gift ? `${gift.fromName} left you a Lmiere founder gift` : "Your Lmiere account is verified",
     text: `Welcome to Lmiere, ${greeting}. ${giftLine || "Your private wallet and generation archive are ready."} Open the studio: https://lmiere.com/studio\n\nQuestions? Reply to this email.`,
@@ -143,7 +172,7 @@ async function sendClaimedEmail({ userId, kind, to, content }) {
   }
 }
 
-export async function sendVerifiedAccountEmails(user, { gift = null } = {}) {
+export async function sendVerifiedAccountEmails(user, { gift = null, language = "en" } = {}) {
   if (!isTransactionalEmailConfigured()) return { configured: false };
 
   const results = [];
@@ -151,7 +180,7 @@ export async function sendVerifiedAccountEmails(user, { gift = null } = {}) {
     userId: user.id,
     kind: "welcome",
     to: user.email,
-    content: welcomeEmail({ ...user, gift }),
+    content: welcomeEmail({ ...user, gift, language }),
   }));
 
   const founders = founderRecipients();

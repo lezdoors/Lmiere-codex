@@ -26,6 +26,7 @@ import {
   isAuthConfigured,
   isVerifiedSession,
 } from "./auth.js";
+import { LanguageSwitch, localizeError, useLanguage } from "./i18n.jsx";
 
 const OUTCOMES = [
   {
@@ -61,26 +62,8 @@ function outcomeById(id) {
   return OUTCOMES.find((candidate) => candidate.id === id) ?? OUTCOMES[0];
 }
 
-function formatPrice(price) {
-  return `$${price.toFixed(2)}`;
-}
-
-function formatCents(cents = 0) {
-  return `$${(cents / 100).toFixed(2)}`;
-}
-
-function formatRunTime(value) {
-  if (!value) return "Pending";
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
-}
-
-function formatStatus(status = "pending") {
-  return status.replaceAll("_", " ");
+function formatStatus(status = "pending", t) {
+  return t(status.replaceAll("_", " "));
 }
 
 function routeFromPath(pathname = "/") {
@@ -98,8 +81,8 @@ function routeFromPath(pathname = "/") {
   return { name: "not-found", path };
 }
 
-function ledgerLabel(kind) {
-  return {
+function ledgerLabel(kind, t) {
+  return t({
     initial_credit: "Opening test credit",
     founder_gift: "Founder gift",
     credit: "Credit added",
@@ -107,22 +90,23 @@ function ledgerLabel(kind) {
     settle: "Completed generation",
     release: "Charge released",
     refund: "Credit returned",
-  }[kind] ?? "Wallet activity";
+  }[kind] ?? "Wallet activity");
 }
 
 function FounderGift({ gift, onAccept }) {
+  const { formatCents, t } = useLanguage();
   if (!gift) return null;
 
   return (
     <div className="founder-gift-backdrop" role="presentation">
       <section className="founder-gift-card" role="dialog" aria-modal="true" aria-labelledby="founder-gift-title">
         <div className="founder-gift-orbit" aria-hidden="true"><span /><span /><span /></div>
-        <p>// Private founder transmission</p>
-        <h2 id="founder-gift-title">A little chaos,<br /><em>on {gift.fromName}.</em></h2>
+        <p>// {t("Private founder transmission")}</p>
+        <h2 id="founder-gift-title">{t("A little chaos,")}<br /><em>{t("on {name}.", { name: gift.fromName })}</em></h2>
         <strong>{formatCents(gift.creditCents)}</strong>
-        <blockquote>“{gift.message}”</blockquote>
-        <button type="button" onClick={onAccept}>Accept the pixels <ArrowRight size={17} /></button>
-        <small>This credit belongs only to your account.</small>
+        <blockquote>“{t(gift.message)}”</blockquote>
+        <button type="button" onClick={onAccept}>{t("Accept the pixels")} <ArrowRight size={17} /></button>
+        <small>{t("This credit belongs only to your account.")}</small>
       </section>
     </div>
   );
@@ -290,6 +274,7 @@ function SignalImage({ src, alt, className = "", loading = "lazy" }) {
 }
 
 function AuthPanel({ session, account, onAuthenticated, onSignOut }) {
+  const { formatCents, t } = useLanguage();
   const [mode, setMode] = useState("sign-in");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -306,7 +291,7 @@ function AuthPanel({ session, account, onAuthenticated, onSignOut }) {
       email: targetEmail,
       callbackURL: `${window.location.origin}/account`,
     });
-    if (response?.error) throw new Error(response.error.message ?? "The verification code could not be sent.");
+    if (response?.error) throw new Error(response.error.message ?? t("The verification code could not be sent."));
   }
 
   async function enterVerification(targetEmail, requestCode = true) {
@@ -315,14 +300,14 @@ function AuthPanel({ session, account, onAuthenticated, onSignOut }) {
     setVerificationCode("");
     setMode("verify");
     setError("");
-    setNotice(requestCode ? "Sending a fresh verification code…" : "Enter the verification code from your email.");
+    setNotice(requestCode ? t("Sending a fresh verification code…") : t("Enter the verification code from your email."));
 
     if (!requestCode) return;
     try {
       await requestVerificationCode(normalizedEmail);
-      setNotice(`A verification code was sent to ${normalizedEmail}. It expires in 15 minutes.`);
+      setNotice(t("A verification code was sent to {email}. It expires in 15 minutes.", { email: normalizedEmail }));
     } catch {
-      setNotice("Your account was created. Request a new code below to finish verification.");
+      setNotice(t("Your account was created. Request a new code below to finish verification."));
     }
   }
 
@@ -332,17 +317,17 @@ function AuthPanel({ session, account, onAuthenticated, onSignOut }) {
     setNotice("");
 
     if (!authClient) {
-      setError("Account access is not configured for this environment.");
+      setError(t("Account access is not configured for this environment."));
       return;
     }
 
     if (mode === "sign-up" && password.length < 8) {
-      setError("Use at least 8 characters for your password.");
+      setError(t("Use at least 8 characters for your password."));
       return;
     }
 
     if (mode === "sign-up" && password !== confirmPassword) {
-      setError("The passwords do not match.");
+      setError(t("The passwords do not match."));
       return;
     }
 
@@ -352,7 +337,7 @@ function AuthPanel({ session, account, onAuthenticated, onSignOut }) {
         ? await authClient.signUp.email({ name: name.trim(), email: email.trim(), password })
         : await authClient.signIn.email({ email: email.trim(), password });
 
-      if (response?.error) throw new Error(response.error.message ?? "Authentication failed.");
+      if (response?.error) throw new Error(response.error.message ?? t("Authentication failed."));
       if (response?.data?.user && response.data.user.emailVerified !== true) {
         setPassword("");
         setConfirmPassword("");
@@ -361,15 +346,15 @@ function AuthPanel({ session, account, onAuthenticated, onSignOut }) {
       }
       await onAuthenticated();
     } catch (authError) {
-      const message = authError instanceof Error ? authError.message : "Authentication failed.";
+      const message = authError instanceof Error ? authError.message : t("Authentication failed.");
       if (/security requirements|at least 8|too short/i.test(message)) {
-        setError("Use at least 8 characters for your password.");
+        setError(t("Use at least 8 characters for your password."));
       } else if (/already exists|already registered/i.test(message)) {
-        setError("An account with this email already exists. Sign in instead.");
+        setError(t("An account with this email already exists. Sign in instead."));
       } else if (/verify|verification|not verified/i.test(message) && email.trim()) {
         await enterVerification(email, true);
       } else {
-        setError(message);
+        setError(localizeError(message, t));
       }
     } finally {
       setBusy(false);
@@ -382,7 +367,7 @@ function AuthPanel({ session, account, onAuthenticated, onSignOut }) {
     setNotice("");
 
     if (!/^\d{6}$/.test(verificationCode.trim())) {
-      setError("Enter the six-digit code from your email.");
+      setError(t("Enter the six-digit code from your email."));
       return;
     }
 
@@ -392,14 +377,14 @@ function AuthPanel({ session, account, onAuthenticated, onSignOut }) {
         email: verificationEmail,
         otp: verificationCode.trim(),
       });
-      if (response?.error) throw new Error(response.error.message ?? "The verification code was not accepted.");
-      setNotice("Email verified. Connecting your private account…");
+      if (response?.error) throw new Error(response.error.message ?? t("The verification code was not accepted."));
+      setNotice(t("Email verified. Connecting your private account…"));
       await onAuthenticated();
     } catch (verificationError) {
       const message = verificationError instanceof Error
         ? verificationError.message
-        : "The verification code was not accepted.";
-      setError(/expired/i.test(message) ? "That code expired. Request a new one below." : message);
+        : t("The verification code was not accepted.");
+      setError(/expired/i.test(message) ? t("That code expired. Request a new one below.") : localizeError(message, t));
     } finally {
       setBusy(false);
     }
@@ -411,9 +396,9 @@ function AuthPanel({ session, account, onAuthenticated, onSignOut }) {
     setNotice("");
     try {
       await requestVerificationCode(verificationEmail);
-      setNotice(`A new code was sent to ${verificationEmail}. It expires in 15 minutes.`);
+      setNotice(t("A new code was sent to {email}. It expires in 15 minutes.", { email: verificationEmail }));
     } catch (verificationError) {
-      setError(verificationError instanceof Error ? verificationError.message : "The code could not be sent.");
+      setError(localizeError(verificationError instanceof Error ? verificationError.message : t("The code could not be sent."), t));
     } finally {
       setBusy(false);
     }
@@ -429,10 +414,10 @@ function AuthPanel({ session, account, onAuthenticated, onSignOut }) {
         email: email.trim().toLowerCase(),
         redirectTo: `${window.location.origin}/reset-password`,
       });
-      if (response?.error) throw new Error(response.error.message ?? "The reset email could not be sent.");
-      setNotice("If this email has a Lmiere account, a password-reset link is on the way. The link expires in 15 minutes.");
+      if (response?.error) throw new Error(response.error.message ?? t("The reset email could not be sent."));
+      setNotice(t("If this email has a Lmiere account, a password-reset link is on the way. The link expires in 15 minutes."));
     } catch {
-      setNotice("If this email has a Lmiere account, a password-reset link is on the way. The link expires in 15 minutes.");
+      setNotice(t("If this email has a Lmiere account, a password-reset link is on the way. The link expires in 15 minutes."));
     } finally {
       setBusy(false);
     }
@@ -442,18 +427,18 @@ function AuthPanel({ session, account, onAuthenticated, onSignOut }) {
     return (
       <div className="panel-content sign-in-content account-content">
         <UserCircle size={36} weight="light" />
-        <p className="panel-kicker">Private account connected</p>
-        <h2>{session.user.name || "Lmiere member"}</h2>
+        <p className="panel-kicker">{t("Private account connected")}</p>
+        <h2>{session.user.name || t("Lmiere member")}</h2>
         <p>{session.user.email}</p>
         <div className="account-balance">
-          <span>Available balance</span>
+          <span>{t("Available balance")}</span>
           <strong>{formatCents(account?.availableCents)}</strong>
-          <small>{formatCents(account?.reservedCents)} reserved in active runs</small>
+          <small>{formatCents(account?.reservedCents)} {t("reserved in active runs")}</small>
         </div>
         <button className="panel-action" type="button" onClick={onSignOut}>
-          Sign out <SignOut size={17} />
+          {t("Sign out")} <SignOut size={17} />
         </button>
-        <small>Every account has its own wallet, archive, and generation history.</small>
+        <small>{t("Every account has its own wallet, archive, and generation history.")}</small>
       </div>
     );
   }
@@ -462,13 +447,13 @@ function AuthPanel({ session, account, onAuthenticated, onSignOut }) {
     return (
       <div className="panel-content sign-in-content verification-content">
         <ShieldCheck size={36} weight="light" />
-        <p className="panel-kicker">Confirm your email</p>
-        <h2>One code. Your account stays yours.</h2>
-        <p>We only open a wallet after the address belongs to you.</p>
+        <p className="panel-kicker">{t("Confirm your email")}</p>
+        <h2>{t("One code. Your account stays yours.")}</h2>
+        <p>{t("We only open a wallet after the address belongs to you.")}</p>
 
         <form className="auth-form" onSubmit={verifyEmail}>
           <label>
-            <span>Six-digit code</span>
+            <span>{t("Six-digit code")}</span>
             <input
               className="verification-code-input"
               type="text"
@@ -485,12 +470,12 @@ function AuthPanel({ session, account, onAuthenticated, onSignOut }) {
           {notice && <p className="auth-notice" role="status">{notice}</p>}
           {error && <p className="auth-error" role="alert">{error}</p>}
           <button className="panel-action" type="submit" disabled={busy || verificationCode.length !== 6}>
-            {busy ? <><CircleNotch className="spin" size={17} /> Verifying</> : <><Check size={17} /> Verify email</>}
+            {busy ? <><CircleNotch className="spin" size={17} /> {t("Verifying")}</> : <><Check size={17} /> {t("Verify email")}</>}
           </button>
         </form>
 
         <button className="auth-mode-button" type="button" onClick={resendVerification} disabled={busy}>
-          Send a new code
+          {t("Send a new code")}
         </button>
         <button
           className="auth-mode-button auth-back-button"
@@ -502,7 +487,7 @@ function AuthPanel({ session, account, onAuthenticated, onSignOut }) {
             setNotice("");
           }}
         >
-          Use a different email
+          {t("Use a different email")}
         </button>
       </div>
     );
@@ -512,12 +497,12 @@ function AuthPanel({ session, account, onAuthenticated, onSignOut }) {
     return (
       <div className="panel-content sign-in-content verification-content">
         <LockKey size={36} weight="light" />
-        <p className="panel-kicker">Recover account</p>
-        <h2>Reset the key. Keep the archive.</h2>
-        <p>We will send a short-lived reset link to the address attached to your account.</p>
+        <p className="panel-kicker">{t("Recover account")}</p>
+        <h2>{t("Reset the key. Keep the archive.")}</h2>
+        <p>{t("We will send a short-lived reset link to the address attached to your account.")}</p>
         <form className="auth-form" onSubmit={requestPasswordReset}>
           <label>
-            <span>Email</span>
+            <span>{t("Email")}</span>
             <input
               type="email"
               value={email}
@@ -530,7 +515,7 @@ function AuthPanel({ session, account, onAuthenticated, onSignOut }) {
           {notice && <p className="auth-notice" role="status">{notice}</p>}
           {error && <p className="auth-error" role="alert">{error}</p>}
           <button className="panel-action" type="submit" disabled={busy || !email.trim()}>
-            {busy ? <><CircleNotch className="spin" size={17} /> Sending</> : <>Send reset link <ArrowRight size={17} /></>}
+            {busy ? <><CircleNotch className="spin" size={17} /> {t("Sending")}</> : <>{t("Send reset link")} <ArrowRight size={17} /></>}
           </button>
         </form>
         <button
@@ -542,7 +527,7 @@ function AuthPanel({ session, account, onAuthenticated, onSignOut }) {
             setNotice("");
           }}
         >
-          Return to sign in
+          {t("Return to sign in")}
         </button>
       </div>
     );
@@ -551,14 +536,14 @@ function AuthPanel({ session, account, onAuthenticated, onSignOut }) {
   return (
       <div className="panel-content sign-in-content">
         <UserCircle size={36} weight="light" />
-        <p className="panel-kicker">Private account access</p>
-        <h2>{mode === "sign-up" ? "Create your field identity." : "Return to your archive."}</h2>
-        <p>Your generations, balance, and results stay attached to your account and never mix with another member’s archive.</p>
+        <p className="panel-kicker">{t("Private account access")}</p>
+        <h2>{t(mode === "sign-up" ? "Create your field identity." : "Return to your archive.")}</h2>
+        <p>{t("Your generations, balance, and results stay attached to your account and never mix with another member’s archive.")}</p>
 
       <form className="auth-form" onSubmit={submit}>
         {mode === "sign-up" && (
           <label>
-            <span>Name</span>
+            <span>{t("Name")}</span>
             <input
               type="text"
               value={name}
@@ -569,7 +554,7 @@ function AuthPanel({ session, account, onAuthenticated, onSignOut }) {
           </label>
         )}
         <label>
-          <span>Email</span>
+          <span>{t("Email")}</span>
           <input
             type="email"
             value={email}
@@ -579,7 +564,7 @@ function AuthPanel({ session, account, onAuthenticated, onSignOut }) {
           />
         </label>
         <label>
-          <span>Password</span>
+          <span>{t("Password")}</span>
           <input
             type="password"
             value={password}
@@ -588,11 +573,11 @@ function AuthPanel({ session, account, onAuthenticated, onSignOut }) {
             minLength={8}
             required
           />
-          {mode === "sign-up" && <small className="auth-hint">Use 8 or more characters.</small>}
+          {mode === "sign-up" && <small className="auth-hint">{t("Use 8 or more characters.")}</small>}
         </label>
         {mode === "sign-up" && (
           <label>
-            <span>Confirm password</span>
+            <span>{t("Confirm password")}</span>
             <input
               type="password"
               value={confirmPassword}
@@ -606,8 +591,8 @@ function AuthPanel({ session, account, onAuthenticated, onSignOut }) {
         {error && <p className="auth-error" role="alert">{error}</p>}
         {notice && <p className="auth-notice" role="status">{notice}</p>}
         <button className="panel-action" type="submit" disabled={busy || !isAuthConfigured}>
-          {busy ? <><CircleNotch className="spin" size={17} /> Connecting</> : (
-            <>{mode === "sign-up" ? "Create account" : "Sign in"} <ArrowRight size={17} /></>
+          {busy ? <><CircleNotch className="spin" size={17} /> {t("Connecting")}</> : (
+            <>{t(mode === "sign-up" ? "Create account" : "Sign in")} <ArrowRight size={17} /></>
           )}
         </button>
       </form>
@@ -622,7 +607,7 @@ function AuthPanel({ session, account, onAuthenticated, onSignOut }) {
           setNotice("");
         }}
       >
-        {mode === "sign-in" ? "First visit? Create an account" : "Already registered? Sign in"}
+        {t(mode === "sign-in" ? "First visit? Create an account" : "Already registered? Sign in")}
       </button>
       {mode === "sign-in" && (
         <button
@@ -634,23 +619,24 @@ function AuthPanel({ session, account, onAuthenticated, onSignOut }) {
             setNotice("");
           }}
         >
-          Forgot your password?
+          {t("Forgot your password?")}
         </button>
       )}
-      <small>Secure sign-in protects your private archive and available balance.</small>
+      <small>{t("Secure sign-in protects your private archive and available balance.")}</small>
     </div>
   );
 }
 
 function ResultMedia({ generation, interactive = false }) {
+  const { t } = useLanguage();
   if (!generation?.resultUrl) return null;
   if (generation.resultContentType?.startsWith("video/")) {
     return <video src={generation.resultUrl} controls playsInline autoPlay loop />;
   }
   if (interactive) {
-    return <SignalImage src={generation.resultUrl} alt={generation.prompt || "Generated Lmiere result"} />;
+    return <SignalImage src={generation.resultUrl} alt={generation.prompt || t("Generated Lmiere result")} />;
   }
-  return <img src={generation.resultUrl} alt={generation.prompt || "Generated Lmiere result"} />;
+  return <img src={generation.resultUrl} alt={generation.prompt || t("Generated Lmiere result")} />;
 }
 
 function SidePanel({
@@ -666,6 +652,7 @@ function SidePanel({
   onAuthenticated,
   onSignOut,
 }) {
+  const { formatCents, formatDate, t } = useLanguage();
   if (!panel) return null;
   const panelTitle = panel === "Sign in" ? "Account access" : panel;
 
@@ -673,28 +660,28 @@ function SidePanel({
     <div className="panel-scrim" role="presentation" onMouseDown={onClose}>
       <aside
         className="side-panel"
-        aria-label={`${panelTitle} panel`}
+        aria-label={`${t(panelTitle)} ${t("panel")}`}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="panel-header">
-          <span>{panelTitle}</span>
-          <button className="panel-close" type="button" onClick={onClose} aria-label="Close panel">
+          <span>{t(panelTitle)}</span>
+          <button className="panel-close" type="button" onClick={onClose} aria-label={t("Close panel")}>
             <X size={18} weight="light" />
           </button>
         </div>
 
         {panel === "Archive" && (
           <div className="panel-content">
-            <p className="panel-kicker">Recovered generations / {String(runs.length).padStart(2, "0")}</p>
+            <p className="panel-kicker">{t("Recovered generations")} / {String(runs.length).padStart(2, "0")}</p>
             {!session && (
               <>
-                <p className="archive-empty">Sign in to recover your private generation history.</p>
+                <p className="archive-empty">{t("Sign in to recover your private generation history.")}</p>
                 <button className="panel-action" type="button" onClick={() => onOpenPanel("Sign in")}>
-                  Sign in to archive <ArrowRight size={17} />
+                  {t("Sign in to archive")} <ArrowRight size={17} />
                 </button>
               </>
             )}
-            {session && runs.length === 0 && <p className="archive-empty">No runs yet. The archive is waiting.</p>}
+            {session && runs.length === 0 && <p className="archive-empty">{t("No runs yet. The archive is waiting.")}</p>}
             <div className="archive-list">
               {runs.map((run, index) => {
                 const outcome = outcomeById(run.outcome);
@@ -708,7 +695,7 @@ function SidePanel({
                     <span className="archive-index">{String(index + 1).padStart(2, "0")}</span>
                     <span>
                       <strong>{run.prompt}</strong>
-                      <small>{formatRunTime(run.createdAt)} · {outcome.label} · {run.status}</small>
+                      <small>{formatDate(run.createdAt)} · {t(outcome.label)} · {formatStatus(run.status, t)}</small>
                     </span>
                     <span>{formatCents(run.chargeCents)}</span>
                   </button>
@@ -717,7 +704,7 @@ function SidePanel({
             </div>
             {session && (
               <button className="panel-action" type="button" onClick={() => onNavigate("/archive")}>
-                Open full archive <ArrowRight size={17} />
+                {t("Open full archive")} <ArrowRight size={17} />
               </button>
             )}
           </div>
@@ -725,14 +712,14 @@ function SidePanel({
 
         {panel === "How it works" && (
           <div className="panel-content method-panel">
-            <p className="panel-kicker">Three decisions. Nothing else.</p>
+            <p className="panel-kicker">{t("Three decisions. Nothing else.")}</p>
             <ol>
-              <li><span>01</span><strong>Describe it</strong><p>Write what you want in ordinary language.</p></li>
-              <li><span>02</span><strong>Choose the outcome</strong><p>Pick speed, motion, or maximum quality.</p></li>
-              <li><span>03</span><strong>Approve the price</strong><p>See the exact cost before anything runs.</p></li>
+              <li><span>01</span><strong>{t("Describe it")}</strong><p>{t("Write what you want in ordinary language.")}</p></li>
+              <li><span>02</span><strong>{t("Choose the outcome")}</strong><p>{t("Pick speed, motion, or maximum quality.")}</p></li>
+              <li><span>03</span><strong>{t("Approve the price")}</strong><p>{t("See the exact cost before anything runs.")}</p></li>
             </ol>
             <button className="panel-action" type="button" onClick={() => onOpenStudio()}>
-              Enter the studio <ArrowRight size={17} />
+              {t("Enter the studio")} <ArrowRight size={17} />
             </button>
           </div>
         )}
@@ -748,18 +735,18 @@ function SidePanel({
 
         {panel === "Result" && result && (
           <div className="panel-content result-panel">
-            <p className="panel-kicker">Run {result.id} / {result.status}</p>
+            <p className="panel-kicker">{t("Run")} {result.id} / {formatStatus(result.status, t)}</p>
             <ResultMedia generation={result} />
             <div className="result-panel-meta">
               <span>{outcomeById(result.outcome).signal}</span>
-              <span>{outcomeById(result.outcome).label}</span>
+              <span>{t(outcomeById(result.outcome).label)}</span>
               <span>{formatCents(result.chargeCents)}</span>
             </div>
             <a className="panel-action" href={result.resultUrl} download target="_blank" rel="noreferrer">
-              Save result <DownloadSimple size={17} />
+              {t("Save result")} <DownloadSimple size={17} />
             </a>
             <button className="panel-action" type="button" onClick={() => onNavigate(`/runs/${encodeURIComponent(result.id)}`)}>
-              Open full record <ArrowUpRight size={17} />
+              {t("Open full record")} <ArrowUpRight size={17} />
             </button>
           </div>
         )}
@@ -769,27 +756,29 @@ function SidePanel({
 }
 
 function LandingScreen({ onEnterStudio, onOpenPanel, onNavigate, session }) {
+  const { formatPrice, language, t } = useLanguage();
   return (
     <main className="landing-screen">
       <section className="landing-intro" aria-label="Lmiere field manual cover">
         <header className="landing-header">
           <button className="landing-brand" type="button" aria-label="Lmiere home" onClick={() => onNavigate("/")}>
             <BrandMark />
-            <span>Lmiere<br />Field manual</span>
+            <span>Lmiere<br />{t("Field manual")}</span>
           </button>
 
           <div className="landing-meta" aria-label="Edition details">
-            <span>Issue 001<br />Pay-per-generation</span>
-            <span>No. LM-001-FG<br />Open beta</span>
+            <span>{t("Issue 001")}<br />{t("Pay-per-generation")}</span>
+            <span>No. LM-001-FG<br />{t("Open beta")}</span>
           </div>
 
           <nav className="landing-nav" aria-label="Landing navigation">
-            <button type="button" onClick={() => onNavigate("/archive")}>Archive</button>
+            <button type="button" onClick={() => onNavigate("/archive")}>{t("Archive")}</button>
             <button className="landing-nav-account" type="button" onClick={() => onOpenPanel("Sign in")}>
-              <span className="landing-account-full">{session?.user?.name || "Sign in"}</span>
-              <span className="landing-account-short">Account</span>
+              <span className="landing-account-full">{session?.user?.name || t("Sign in")}</span>
+              <span className="landing-account-short">{t("Account")}</span>
             </button>
-            <button className="landing-nav-cta" type="button" onClick={onEnterStudio}>Open studio</button>
+            <LanguageSwitch className="language-switch-paper" />
+            <button className="landing-nav-cta" type="button" onClick={onEnterStudio}>{t("Open studio")}</button>
           </nav>
         </header>
 
@@ -804,56 +793,56 @@ function LandingScreen({ onEnterStudio, onOpenPanel, onNavigate, session }) {
           />
 
           <div className="landing-copy">
-            <p className="landing-kicker">// Field apparatus 001</p>
+            <p className="landing-kicker">// {t("Field apparatus 001")}</p>
             <h1>Lmiere</h1>
-            <p className="landing-thesis">A machine for making images and motion that have <em>not yet</em> happened.</p>
-            <p className="landing-summary">Describe the unseen. Choose the outcome. Know the exact price before the machine begins.</p>
+            <p className="landing-thesis">{language === "fr" ? <>Une machine pour créer les images et les mouvements qui <em>n’existent pas encore</em>.</> : <>A machine for making images and motion that have <em>not yet</em> happened.</>}</p>
+            <p className="landing-summary">{t("Describe the unseen. Choose the outcome. Know the exact price before the machine begins.")}</p>
 
             <div className="landing-actions">
               <button className="primary-paper-button" type="button" onClick={onEnterStudio}>
-                Enter the machine <ArrowRight size={21} weight="light" />
+                {t("Enter the machine")} <ArrowRight size={21} weight="light" />
               </button>
               <a className="text-paper-button" href="#landing-method">
-                How it works <ArrowRight className="north-east-arrow" size={14} />
+                {t("How it works")} <ArrowRight className="north-east-arrow" size={14} />
               </a>
             </div>
           </div>
 
           <div className="landing-annotation landing-annotation-a" aria-hidden="true">
-            <span>A.</span><p>Latent image chamber</p>
+            <span>A.</span><p>{t("Latent image chamber")}</p>
           </div>
           <div className="landing-annotation landing-annotation-b" aria-hidden="true">
-            <span>B.</span><p>Interpretation lens</p>
+            <span>B.</span><p>{t("Interpretation lens")}</p>
           </div>
         </section>
 
         <footer className="landing-footer">
-          <div><span>01</span><strong>Describe the unseen</strong><small>Use ordinary language</small></div>
-          <div><span>02</span><strong>Choose an outcome</strong><small>Image, motion, or detail</small></div>
-          <div><span>03</span><strong>Approve the exact cost</strong><small>No subscription required</small></div>
-          <p>Recovered 2026<br />Lmiere Labs</p>
+          <div><span>01</span><strong>{t("Describe the unseen")}</strong><small>{t("Use ordinary language")}</small></div>
+          <div><span>02</span><strong>{t("Choose an outcome")}</strong><small>{t("Image, motion, or detail")}</small></div>
+          <div><span>03</span><strong>{t("Approve the exact cost")}</strong><small>{t("No subscription required")}</small></div>
+          <p>{t("Recovered")} 2026<br />Lmiere Labs</p>
         </footer>
 
-        <p className="landing-edge-note">Open field test // Europe · Morocco · United States</p>
+        <p className="landing-edge-note">{t("Open field test // Europe · Morocco · United States")}</p>
       </section>
 
       <section className="landing-section landing-outcomes-section" id="outcomes">
         <header className="manual-section-heading">
           <div>
-            <p className="landing-kicker">// Outcome catalog 001–003</p>
-            <h2>Three routes.<br /><em>One visible price.</em></h2>
+            <p className="landing-kicker">// {t("Outcome catalog 001–003")}</p>
+            <h2>{t("Three routes.")}<br /><em>{t("One visible price.")}</em></h2>
           </div>
-          <p>Choose what you want to make—not which model, checkpoint, or provider to operate. Lmiere handles the machinery behind the page.</p>
+          <p>{t("Choose what you want to make—not which model, checkpoint, or provider to operate. Lmiere handles the machinery behind the page.")}</p>
         </header>
 
         <div className="landing-outcome-grid">
           {OUTCOMES.map((outcome, index) => (
             <article className="landing-outcome-card" key={outcome.id}>
               <span>0{index + 1} / {outcome.signal}</span>
-              <h3>{outcome.studioLabel}</h3>
-              <p>{outcome.description}</p>
-              <div><strong>{formatPrice(outcome.price)}</strong><small>{outcome.eta}<br />Charged on completion</small></div>
-              <button type="button" onClick={onEnterStudio}>Choose route <ArrowRight size={16} /></button>
+              <h3>{t(outcome.studioLabel)}</h3>
+              <p>{t(outcome.description)}</p>
+              <div><strong>{formatPrice(outcome.price)}</strong><small>{outcome.eta}<br />{t("Charged on completion")}</small></div>
+              <button type="button" onClick={onEnterStudio}>{t("Choose route")} <ArrowRight size={16} /></button>
             </article>
           ))}
         </div>
@@ -862,20 +851,20 @@ function LandingScreen({ onEnterStudio, onOpenPanel, onNavigate, session }) {
       <section className="landing-section landing-records-section" aria-labelledby="field-records-title">
         <header className="manual-section-heading records-heading">
           <div>
-            <p className="landing-kicker">// Recovered outputs</p>
-            <h2 id="field-records-title">Field records from<br /><em>the unseen.</em></h2>
+            <p className="landing-kicker">// {t("Recovered outputs")}</p>
+            <h2 id="field-records-title">{t("Field records from")}<br /><em>{t("the unseen.")}</em></h2>
           </div>
-          <p>Every completed run returns as a private record: the result, the prompt that made it, the route used, and the exact amount charged.</p>
+          <p>{t("Every completed run returns as a private record: the result, the prompt that made it, the route used, and the exact amount charged.")}</p>
         </header>
 
         <div className="field-record-grid">
           <figure className="field-record field-record-cabin">
             <SignalImage src="/assets/lmiere-result-cabin.png" alt="A glass cabin glowing in a wet forest, shown as a completed generation" />
-            <figcaption><span>Record LM–029</span><strong>A memory of rain inside a glass house</strong><small>Cinematic motion / $0.42</small></figcaption>
+            <figcaption><span>Record LM–029</span><strong>{t("A memory of rain inside a glass house")}</strong><small>{t("Cinematic motion")} / {formatPrice(0.42)}</small></figcaption>
           </figure>
           <figure className="field-record field-record-specimen">
             <SignalImage src="/assets/lmiere-specimen-awake.png" alt="A luminous neural specimen bridging an archival drawing and a living network" />
-            <figcaption><span>Specimen LM–001</span><strong>The network, awake</strong><small>Highest quality / $0.76</small></figcaption>
+            <figcaption><span>Specimen LM–001</span><strong>{t("The network, awake")}</strong><small>{t("Highest quality")} / {formatPrice(0.76)}</small></figcaption>
           </figure>
         </div>
       </section>
@@ -883,28 +872,28 @@ function LandingScreen({ onEnterStudio, onOpenPanel, onNavigate, session }) {
       <section className="landing-section landing-method-section" id="landing-method">
         <header className="manual-section-heading method-heading">
           <div>
-            <p className="landing-kicker">// Operating procedure</p>
-            <h2>Power without<br /><em>the control room.</em></h2>
+            <p className="landing-kicker">// {t("Operating procedure")}</p>
+            <h2>{t("Power without")}<br /><em>{t("the control room.")}</em></h2>
           </div>
-          <p>No subscription maze. No model directory. No shared team balance. The essential decisions stay visible and the infrastructure disappears.</p>
+          <p>{t("No subscription maze. No model directory. No shared team balance. The essential decisions stay visible and the infrastructure disappears.")}</p>
         </header>
 
         <div className="landing-trust-grid">
-          <article><ShieldCheck size={27} weight="light" /><span>01</span><h3>Private by account</h3><p>Your balance, runs, and archive are isolated from every other member.</p></article>
-          <article><Receipt size={27} weight="light" /><span>02</span><h3>Exact cost first</h3><p>Approve a fixed price before the run. Failed runs release the charge.</p></article>
-          <article><LockKey size={27} weight="light" /><span>03</span><h3>Complexity stays hidden</h3><p>Choose an outcome in plain language. Lmiere selects the route behind the scenes.</p></article>
+          <article><ShieldCheck size={27} weight="light" /><span>01</span><h3>{t("Private by account")}</h3><p>{t("Your balance, runs, and archive are isolated from every other member.")}</p></article>
+          <article><Receipt size={27} weight="light" /><span>02</span><h3>{t("Exact cost first")}</h3><p>{t("Approve a fixed price before the run. Failed runs release the charge.")}</p></article>
+          <article><LockKey size={27} weight="light" /><span>03</span><h3>{t("Complexity stays hidden")}</h3><p>{t("Choose an outcome in plain language. Lmiere selects the route behind the scenes.")}</p></article>
         </div>
 
         <div className="landing-procedure">
           <ol>
-            <li><span>01</span><strong>Describe the unseen</strong><p>Write an ordinary sentence. Precision is welcome; jargon is not required.</p></li>
-            <li><span>02</span><strong>Choose the outcome</strong><p>Pick speed, motion, or maximum detail and see its price immediately.</p></li>
-            <li><span>03</span><strong>Approve and recover</strong><p>Begin the run, watch its status, and collect the result in your archive.</p></li>
+            <li><span>01</span><strong>{t("Describe the unseen")}</strong><p>{t("Write an ordinary sentence. Precision is welcome; jargon is not required.")}</p></li>
+            <li><span>02</span><strong>{t("Choose the outcome")}</strong><p>{t("Pick speed, motion, or maximum detail and see its price immediately.")}</p></li>
+            <li><span>03</span><strong>{t("Approve and recover")}</strong><p>{t("Begin the run, watch its status, and collect the result in your archive.")}</p></li>
           </ol>
           <div>
-            <p className="landing-kicker">Field note / 04</p>
-            <blockquote>“Your prompt travels. Engines interpret. Images emerge.”</blockquote>
-            <button className="primary-paper-button" type="button" onClick={onEnterStudio}>Open studio <ArrowRight size={21} /></button>
+            <p className="landing-kicker">{t("Field note / 04")}</p>
+            <blockquote>“{t("Your prompt travels. Engines interpret. Images emerge.")}”</blockquote>
+            <button className="primary-paper-button" type="button" onClick={onEnterStudio}>{t("Open studio")} <ArrowRight size={21} /></button>
           </div>
         </div>
       </section>
@@ -912,23 +901,23 @@ function LandingScreen({ onEnterStudio, onOpenPanel, onNavigate, session }) {
       <section className="landing-closing-section">
         <SignalImage className="landing-closing-image" src="/assets/lmiere-specimen-idle.png" alt="A dormant neural specimen fading from archival paper into a dark network" />
         <div>
-          <p className="landing-kicker">// Machine standing by</p>
-          <h2>Make the thing<br />you cannot find.</h2>
-          <p>Begin with an image for eight cents. Leave with a private record, not another dashboard to learn.</p>
-          <button className="primary-paper-button" type="button" onClick={onEnterStudio}>Enter the machine <ArrowRight size={21} /></button>
+          <p className="landing-kicker">// {t("Machine standing by")}</p>
+          <h2>{t("Make the thing")}<br />{t("you cannot find.")}</h2>
+          <p>{t("Begin with an image for eight cents. Leave with a private record, not another dashboard to learn.")}</p>
+          <button className="primary-paper-button" type="button" onClick={onEnterStudio}>{t("Enter the machine")} <ArrowRight size={21} /></button>
         </div>
       </section>
 
       <footer className="landing-site-footer">
-        <div><BrandMark dark /><span>Lmiere<br />Field manual</span></div>
+        <div><BrandMark dark /><span>Lmiere<br />{t("Field manual")}</span></div>
         <nav aria-label="Footer navigation">
-          <button type="button" onClick={() => onNavigate("/studio")}>Studio</button>
-          <button type="button" onClick={() => onNavigate("/archive")}>Archive</button>
-          <button type="button" onClick={() => onNavigate("/account")}>Account</button>
-          <a href="/privacy" onClick={(event) => { event.preventDefault(); onNavigate("/privacy"); }}>Privacy</a>
-          <a href="/terms" onClick={(event) => { event.preventDefault(); onNavigate("/terms"); }}>Terms</a>
+          <button type="button" onClick={() => onNavigate("/studio")}>{t("Studio")}</button>
+          <button type="button" onClick={() => onNavigate("/archive")}>{t("Archive")}</button>
+          <button type="button" onClick={() => onNavigate("/account")}>{t("Account")}</button>
+          <a href="/privacy" onClick={(event) => { event.preventDefault(); onNavigate("/privacy"); }}>{t("Privacy")}</a>
+          <a href="/terms" onClick={(event) => { event.preventDefault(); onNavigate("/terms"); }}>{t("Terms")}</a>
         </nav>
-        <p>© 2026 Lmiere Labs<br />Open field test</p>
+        <p>© 2026 Lmiere Labs<br />{t("Open field test")}</p>
       </footer>
     </main>
   );
@@ -944,8 +933,9 @@ function StudioScreen({
   onAccountChanged,
   initialDraft,
 }) {
+  const { formatCents, formatPrice, t } = useLanguage();
   const [selectedId, setSelectedId] = useState(initialDraft?.outcome ?? "cinematic");
-  const [prompt, setPrompt] = useState(initialDraft?.prompt ?? "A memory of rain inside a glass house");
+  const [prompt, setPrompt] = useState(initialDraft?.prompt ?? t("A memory of rain inside a glass house"));
   const [phase, setPhase] = useState("idle");
   const [progress, setProgress] = useState(0);
   const [generation, setGeneration] = useState(null);
@@ -984,14 +974,14 @@ function StudioScreen({
         }
         if (["failed", "cancelled"].includes(next.status)) {
           setPhase("failed");
-          setError(next.error || "The run did not complete. No credits were charged.");
+          setError(localizeError(next.error || t("The run did not complete. No credits were charged."), t));
           await onAccountChanged();
           return;
         }
         timer = window.setTimeout(poll, 2200);
       } catch (pollError) {
         if (cancelled) return;
-        setError(pollError instanceof Error ? pollError.message : "Could not read the run status.");
+        setError(localizeError(pollError instanceof Error ? pollError.message : t("Could not read the run status."), t));
         timer = window.setTimeout(poll, 4000);
       }
     }
@@ -1001,15 +991,15 @@ function StudioScreen({
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [generation?.id, onAccountChanged, phase]);
+  }, [generation?.id, onAccountChanged, phase, t]);
 
   async function beginRun() {
     if (!prompt.trim()) {
-      setError("Describe what the network should create.");
+      setError(t("Describe what the network should create."));
       return;
     }
     if (!session?.user) {
-      setError("Sign in to connect a private wallet before beginning a run.");
+      setError(t("Sign in to connect a private wallet before beginning a run."));
       onOpenPanel("Sign in");
       return;
     }
@@ -1031,7 +1021,7 @@ function StudioScreen({
     } catch (runError) {
       setPhase("failed");
       setProgress(0);
-      setError(runError instanceof Error ? runError.message : "The run could not begin.");
+      setError(localizeError(runError instanceof Error ? runError.message : t("The run could not begin."), t));
       await onAccountChanged();
     }
   }
@@ -1048,39 +1038,41 @@ function StudioScreen({
   return (
     <main className="studio-screen">
       <header className="studio-header">
-        <button className="studio-brand" type="button" onClick={onReturn} aria-label="Return to the field manual">
+        <button className="studio-brand" type="button" onClick={onReturn} aria-label={t("Return to the field manual")}>
           <span>Lmiere<Sparkle size={10} weight="fill" /></span>
-          <small>Distributed image machine</small>
+          <small>{t("Distributed image machine")}</small>
         </button>
 
         <div className="studio-system-meta">
-          <div><span>Network status</span><strong>Nominal / 03 routes</strong></div>
-          <div><span>Queue</span><strong>{isRunning ? "Active / Working" : "00:00 / Ready"}</strong></div>
-          <div><span>Archive</span><strong>Account-isolated / Private</strong></div>
+          <div><span>{t("Network status")}</span><strong>{t("Nominal / 03 routes")}</strong></div>
+          <div><span>{t("Queue")}</span><strong>{t(isRunning ? "Active / Working" : "00:00 / Ready")}</strong></div>
+          <div><span>{t("Archive")}</span><strong>{t("Account-isolated / Private")}</strong></div>
         </div>
 
         <nav className="studio-nav" aria-label="Studio navigation">
-          <button type="button" onClick={() => onNavigate("/archive")}>Archive / {String(runs.length).padStart(2, "0")}</button>
+          <button type="button" onClick={() => onNavigate("/archive")}>{t("Archive")} / {String(runs.length).padStart(2, "0")}</button>
           <button type="button" onClick={() => onNavigate("/account")}>
-            Wallet <strong>{session ? formatCents(account?.availableCents) : "Sign in"}</strong>
+            {t("Wallet")} <strong>{session ? formatCents(account?.availableCents) : t("Sign in")}</strong>
           </button>
-          <button className="studio-exit" type="button" onClick={onReturn} aria-label="Return to landing page">
-            <ArrowLeft size={16} /> Manual
+          <LanguageSwitch className="language-switch-night" />
+          <button className="studio-exit" type="button" onClick={onReturn} aria-label={t("Return to landing page")}>
+            <ArrowLeft size={16} /> {t("Manual")}
           </button>
         </nav>
       </header>
 
       <nav className="studio-mobile-nav" aria-label="Mobile studio navigation">
-        <button type="button" aria-current="page">Studio</button>
-        <button type="button" onClick={() => onNavigate("/archive")}>Archive / {String(runs.length).padStart(2, "0")}</button>
-        <button type="button" onClick={() => onNavigate("/account")}>Wallet {session ? formatCents(account?.availableCents) : "Sign in"}</button>
+        <button type="button" aria-current="page">{t("Studio")}</button>
+        <button type="button" onClick={() => onNavigate("/archive")}>{t("Archive")} / {String(runs.length).padStart(2, "0")}</button>
+        <button type="button" onClick={() => onNavigate("/account")}>{t("Wallet")} {session ? formatCents(account?.availableCents) : t("Sign in")}</button>
+        <LanguageSwitch className="language-switch-night" />
       </nav>
 
       <section className="studio-prompt-zone" aria-labelledby="studio-prompt-heading">
-        <div className="studio-index">Input / 01</div>
+        <div className="studio-index">{t("Input / 01")}</div>
         <div>
-          <p className="studio-label">Prompt stream</p>
-          <label id="studio-prompt-heading" htmlFor="studio-prompt" role="heading" aria-level="1">What should the network dream?</label>
+          <p className="studio-label">{t("Prompt stream")}</p>
+          <label id="studio-prompt-heading" htmlFor="studio-prompt" role="heading" aria-level="1">{t("What should the network dream?")}</label>
           <textarea
             id="studio-prompt"
             rows={2}
@@ -1092,14 +1084,14 @@ function StudioScreen({
             }}
             disabled={isRunning}
           />
-          <small>Describe any image or video. The network will interpret.</small>
+          <small>{t("Describe any image or video. The network will interpret.")}</small>
           {error && <p className="studio-error" role="alert">{error}</p>}
         </div>
       </section>
 
       <section className="studio-workspace">
         <fieldset className="studio-outcomes" disabled={isRunning}>
-          <legend className="studio-label">Outcome / choose one</legend>
+          <legend className="studio-label">{t("Outcome / choose one")}</legend>
           {OUTCOMES.map((candidate, index) => (
             <label className={`studio-outcome ${selectedId === candidate.id ? "is-selected" : ""}`} key={candidate.id}>
               <input
@@ -1114,21 +1106,21 @@ function StudioScreen({
               />
               <span className="studio-outcome-index">0{index + 1}</span>
               <span>
-                <strong>{candidate.studioLabel}</strong>
+                <strong>{t(candidate.studioLabel)}</strong>
                 <small>{candidate.signal}</small>
               </span>
               <i aria-hidden="true">{selectedId === candidate.id && <Check size={12} weight="bold" />}</i>
-              <p>{candidate.description}</p>
+              <p>{t(candidate.description)}</p>
               <em>{candidate.eta}</em>
             </label>
           ))}
-          <p className="studio-engine-note"><Cpu size={14} /> Lmiere chooses the best engine behind the scenes.</p>
+          <p className="studio-engine-note"><Cpu size={14} /> {t("Lmiere chooses the best engine behind the scenes.")}</p>
         </fieldset>
 
         <div className="studio-quote">
-          <p className="studio-label">Estimated cost</p>
+          <p className="studio-label">{t("Estimated cost")}</p>
           <output>{formatPrice(outcome.price)}</output>
-          <span>USD / No subscription</span>
+          <span>{t("USD / No subscription")}</span>
           <button
             className="studio-run-button"
             type="button"
@@ -1136,21 +1128,21 @@ function StudioScreen({
             disabled={isRunning}
           >
             {isRunning ? (
-              <><CircleNotch className="spin" size={19} /> Running {progress}%</>
+              <><CircleNotch className="spin" size={19} /> {t("Running")} {progress}%</>
             ) : phase === "complete" || phase === "failed" ? (
-              <>New run <ArrowRight size={20} /></>
+              <>{t("New run")} <ArrowRight size={20} /></>
             ) : (
-              <>Begin run <ArrowRight size={20} /></>
+              <>{t("Begin run")} <ArrowRight size={20} /></>
             )}
           </button>
-          <small>You will be charged {formatPrice(outcome.price)} only if the run completes.</small>
-          <strong>03 routes / <b>{isRunning ? "01 active" : "ready"}</b></strong>
+          <small>{t("You will be charged {price} only if the run completes.", { price: formatPrice(outcome.price) })}</small>
+          <strong>03 {t("routes")} / <b>{t(isRunning ? "01 active" : "ready")}</b></strong>
         </div>
 
         <figure className={`studio-output ${isRunning ? "is-generating" : ""} ${phase === "complete" ? "is-complete" : ""}`}>
           <figcaption>
-            <span><i /> Live output feed</span>
-            <small>{outcome.signal} / {generation?.id ?? "AWAITING"}</small>
+            <span><i /> {t("Live output feed")}</span>
+            <small>{outcome.signal} / {generation?.id ?? t("AWAITING")}</small>
           </figcaption>
           <div className="studio-output-frame">
             {result ? <ResultMedia generation={result} /> : (
@@ -1158,23 +1150,23 @@ function StudioScreen({
             )}
             {isRunning && (
               <div className="studio-output-scan" aria-live="polite">
-                <CircleNotch className="spin" size={23} /> Interpreting prompt
+                <CircleNotch className="spin" size={23} /> {t("Interpreting prompt")}
               </div>
             )}
             {phase === "complete" && (
               <div className="studio-output-complete" aria-live="polite">
-                <Check size={16} weight="bold" /> Run complete
+                <Check size={16} weight="bold" /> {t("Run complete")}
               </div>
             )}
           </div>
           <div className="studio-progress-row">
-            <span>{phase === "complete" ? "Stored in archive" : isRunning ? "Generating" : "Awaiting run"}</span>
+            <span>{t(phase === "complete" ? "Stored in archive" : isRunning ? "Generating" : "Awaiting run")}</span>
             <span>{phase === "idle" || phase === "failed" ? "00" : progress}%</span>
           </div>
           <div className="studio-progress-track"><i style={{ width: `${phase === "idle" || phase === "failed" ? 0 : progress}%` }} /></div>
           {phase === "complete" && (
             <button className="studio-result-button" type="button" onClick={() => onNavigate(`/runs/${encodeURIComponent(generation.id)}`)}>
-              Open result <ArrowRight size={17} />
+              {t("Open result")} <ArrowRight size={17} />
             </button>
           )}
         </figure>
@@ -1182,70 +1174,75 @@ function StudioScreen({
 
       <footer className="studio-footer">
         <div className="studio-log">
-          <p className="studio-label">System log</p>
-          <span>{isRunning ? "Live / Provider route active" : "Ready / Prompt route standing by"}</span>
-          <span>{session ? "Private wallet connected" : "Wallet waiting for sign in"}</span>
-          <span>Private archive / Account-isolated</span>
+          <p className="studio-label">{t("System log")}</p>
+          <span>{t(isRunning ? "Live / Provider route active" : "Ready / Prompt route standing by")}</span>
+          <span>{t(session ? "Private wallet connected" : "Wallet waiting for sign in")}</span>
+          <span>{t("Private archive / Account-isolated")}</span>
         </div>
-        <p>Your prompt travels. Engines interpret. Images emerge.</p>
-        <div><span>Build 1.0.0</span><strong>Status / Nominal</strong></div>
+        <p>{t("Your prompt travels. Engines interpret. Images emerge.")}</p>
+        <div><span>Build 1.0.0</span><strong>{t("Status / Nominal")}</strong></div>
       </footer>
     </main>
   );
 }
 
 function ProductHeader({ active, tone = "night", onNavigate, session, account, runs }) {
+  const { formatCents, t } = useLanguage();
   return (
     <header className={`product-header product-header-${tone}`}>
       <button className="product-brand" type="button" onClick={() => onNavigate("/")} aria-label="Return to Lmiere home">
         <BrandMark dark={tone !== "paper"} />
-        <span>Lmiere<br /><small>Distributed image machine</small></span>
+        <span>Lmiere<br /><small>{t("Distributed image machine")}</small></span>
       </button>
 
       <div className="product-header-meta" aria-label="Page status">
-        <span>Field route<br /><strong>{active}</strong></span>
-        <span>Archive<br /><strong>{String(runs.length).padStart(2, "0")} records</strong></span>
+        <span>{t("Field route")}<br /><strong>{t(active)}</strong></span>
+        <span>{t("Archive")}<br /><strong>{String(runs.length).padStart(2, "0")} {t("records")}</strong></span>
       </div>
 
       <nav className="product-nav" aria-label="Product navigation">
-        <button type="button" aria-current={active === "Studio" ? "page" : undefined} onClick={() => onNavigate("/studio")}>Studio</button>
-        <button type="button" aria-current={active === "Archive" ? "page" : undefined} onClick={() => onNavigate("/archive")}>Archive</button>
+        <button type="button" aria-current={active === "Studio" ? "page" : undefined} onClick={() => onNavigate("/studio")}>{t("Studio")}</button>
+        <button type="button" aria-current={active === "Archive" ? "page" : undefined} onClick={() => onNavigate("/archive")}>{t("Archive")}</button>
         <button type="button" aria-current={active === "Account" ? "page" : undefined} onClick={() => onNavigate("/account")}>
-          Wallet <strong>{session ? formatCents(account?.availableCents) : "Sign in"}</strong>
+          {t("Wallet")} <strong>{session ? formatCents(account?.availableCents) : t("Sign in")}</strong>
         </button>
-        <button type="button" onClick={() => onNavigate("/")}><ArrowLeft size={15} /> Manual</button>
+        <LanguageSwitch className={tone === "paper" ? "language-switch-paper" : "language-switch-night"} />
+        <button type="button" onClick={() => onNavigate("/")}><ArrowLeft size={15} /> {t("Manual")}</button>
       </nav>
     </header>
   );
 }
 
 function AuthGate({ eyebrow, title, copy, onOpenPanel, tone = "night", headingLevel = "h2" }) {
+  const { t } = useLanguage();
   const Heading = headingLevel;
 
   return (
     <section className={`auth-gate auth-gate-${tone}`}>
       <LockKey size={35} weight="light" />
-      <p>{eyebrow}</p>
-      <Heading>{title}</Heading>
-      <span>{copy}</span>
-      <button type="button" onClick={() => onOpenPanel("Sign in")}>Sign in or create account <ArrowRight size={18} /></button>
+      <p>{t(eyebrow)}</p>
+      <Heading>{t(title)}</Heading>
+      <span>{t(copy)}</span>
+      <button type="button" onClick={() => onOpenPanel("Sign in")}>{t("Sign in or create account")} <ArrowRight size={18} /></button>
     </section>
   );
 }
 
 function ArchiveMedia({ run }) {
+  const { t } = useLanguage();
   if (run?.resultContentType?.startsWith("video/") && run.resultUrl) {
     return <video src={run.resultUrl} muted playsInline preload="metadata" />;
   }
   return (
     <SignalImage
       src={run?.resultUrl || "/assets/lmiere-result-cabin.png"}
-      alt={run?.resultUrl ? run.prompt : "A dormant sample record waiting for a completed generation"}
+      alt={run?.resultUrl ? run.prompt : t("A dormant sample record waiting for a completed generation")}
     />
   );
 }
 
 function ArchiveScreen({ session, account, runs, onNavigate, onOpenPanel }) {
+  const { formatCents, formatDate, t } = useLanguage();
   const completed = runs.filter((run) => run.status === "complete").length;
   const spentCents = runs.reduce((sum, run) => sum + (run.status === "complete" ? run.chargeCents : 0), 0);
 
@@ -1256,17 +1253,17 @@ function ArchiveScreen({ session, account, runs, onNavigate, onOpenPanel }) {
       <div className="archive-paper">
         <section className="archive-page-intro">
           <div>
-            <p>// Private output index</p>
-            <h1>Your archive<br /><em>remembers.</em></h1>
+            <p>// {t("Private output index")}</p>
+            <h1>{t("Your archive")}<br /><em>{t("remembers.")}</em></h1>
           </div>
-          <p>Every completed image and motion run returns here with its prompt, route, status, and exact charge intact.</p>
+          <p>{t("Every completed image and motion run returns here with its prompt, route, status, and exact charge intact.")}</p>
         </section>
 
         <div className="archive-stat-row" aria-label="Archive summary">
-          <div><span>Records</span><strong>{String(runs.length).padStart(2, "0")}</strong></div>
-          <div><span>Recovered</span><strong>{String(completed).padStart(2, "0")}</strong></div>
-          <div><span>Total charged</span><strong>{formatCents(spentCents)}</strong></div>
-          <div><span>Available</span><strong>{session ? formatCents(account?.availableCents) : "—"}</strong></div>
+          <div><span>{t("Records")}</span><strong>{String(runs.length).padStart(2, "0")}</strong></div>
+          <div><span>{t("Recovered")}</span><strong>{String(completed).padStart(2, "0")}</strong></div>
+          <div><span>{t("Total charged")}</span><strong>{formatCents(spentCents)}</strong></div>
+          <div><span>{t("Available")}</span><strong>{session ? formatCents(account?.availableCents) : "—"}</strong></div>
         </div>
 
         {!session ? (
@@ -1280,7 +1277,7 @@ function ArchiveScreen({ session, account, runs, onNavigate, onOpenPanel }) {
         ) : runs.length === 0 ? (
           <section className="archive-zero-state">
             <SignalImage src="/assets/lmiere-specimen-idle.png" alt="A dormant network specimen waiting for its first run" />
-            <div><p>// No recovered records</p><h2>The archive is waiting.</h2><span>Begin with one sentence and one visible price.</span><button type="button" onClick={() => onNavigate("/studio")}>Make the first record <ArrowRight size={18} /></button></div>
+            <div><p>// {t("No recovered records")}</p><h2>{t("The archive is waiting.")}</h2><span>{t("Begin with one sentence and one visible price.")}</span><button type="button" onClick={() => onNavigate("/studio")}>{t("Make the first record")} <ArrowRight size={18} /></button></div>
           </section>
         ) : (
           <section className="archive-record-grid" aria-label="Generation records">
@@ -1288,9 +1285,9 @@ function ArchiveScreen({ session, account, runs, onNavigate, onOpenPanel }) {
               const outcome = outcomeById(run.outcome);
               return (
                 <button className="archive-record-card" type="button" key={run.id} onClick={() => onNavigate(`/runs/${encodeURIComponent(run.id)}`)}>
-                  <div className="archive-record-heading"><span>#{String(index + 1).padStart(2, "0")} {formatStatus(run.status)}</span><small>{formatRunTime(run.createdAt)}</small></div>
+                  <div className="archive-record-heading"><span>#{String(index + 1).padStart(2, "0")} {formatStatus(run.status, t)}</span><small>{formatDate(run.createdAt)}</small></div>
                   <ArchiveMedia run={run} />
-                  <div className="archive-record-copy"><h2>{run.prompt}</h2><p>{outcome.signal} / {outcome.label}</p><strong>{formatCents(run.chargeCents)}</strong></div>
+                  <div className="archive-record-copy"><h2>{run.prompt}</h2><p>{outcome.signal} / {t(outcome.label)}</p><strong>{formatCents(run.chargeCents)}</strong></div>
                 </button>
               );
             })}
@@ -1302,6 +1299,7 @@ function ArchiveScreen({ session, account, runs, onNavigate, onOpenPanel }) {
 }
 
 function AccountScreen({ session, account, runs, ledger, onNavigate, onOpenPanel, onSignOut }) {
+  const { formatCents, formatDate, t } = useLanguage();
   const completeRuns = runs.filter((run) => run.status === "complete");
   const spentCents = completeRuns.reduce((sum, run) => sum + run.chargeCents, 0);
 
@@ -1320,27 +1318,27 @@ function AccountScreen({ session, account, runs, ledger, onNavigate, onOpenPanel
         <div className="account-page-body">
           <section className="network-page-intro">
             <video className="account-signal-video" src="/assets/lmiere-signal-ripple.mp4" poster="/assets/lmiere-specimen-idle.png" autoPlay muted loop playsInline preload="metadata" aria-hidden="true" />
-            <div><p>// Account ledger</p><h1>Wallet<br /><em>signal.</em></h1></div>
-            <p>{session.user.email}<br />Every credit movement is attached to this account and its private run history.</p>
+            <div><p>// {t("Account ledger")}</p><h1>{t("Wallet")}<br /><em>{t("signal.")}</em></h1></div>
+            <p>{session.user.email}<br />{t("Every credit movement is attached to this account and its private run history.")}</p>
           </section>
 
           <section className="wallet-summary-grid" aria-label="Wallet summary">
-            <article><Wallet size={24} weight="light" /><span>Available balance</span><strong>{formatCents(account?.availableCents)}</strong><small>Ready for a new run</small></article>
-            <article><ClockCounterClockwise size={24} weight="light" /><span>Reserved</span><strong>{formatCents(account?.reservedCents)}</strong><small>Held only while runs are active</small></article>
-            <article><Coins size={24} weight="light" /><span>Completed spend</span><strong>{formatCents(spentCents)}</strong><small>{completeRuns.length} recovered generation{completeRuns.length === 1 ? "" : "s"}</small></article>
+            <article><Wallet size={24} weight="light" /><span>{t("Available balance")}</span><strong>{formatCents(account?.availableCents)}</strong><small>{t("Ready for a new run")}</small></article>
+            <article><ClockCounterClockwise size={24} weight="light" /><span>{t("Reserved")}</span><strong>{formatCents(account?.reservedCents)}</strong><small>{t("Held only while runs are active")}</small></article>
+            <article><Coins size={24} weight="light" /><span>{t("Completed spend")}</span><strong>{formatCents(spentCents)}</strong><small>{completeRuns.length} {t(completeRuns.length === 1 ? "recovered generation" : "recovered generations")}</small></article>
           </section>
 
           <section className="ledger-section">
-            <header><div><p>// Immutable activity</p><h2>Credit ledger</h2></div><span>{ledger.length} entries recovered</span></header>
-            {ledger.length === 0 ? <p className="ledger-empty">No wallet activity has been recorded yet.</p> : (
+            <header><div><p>// {t("Immutable activity")}</p><h2>{t("Credit ledger")}</h2></div><span>{ledger.length} {t("entries recovered")}</span></header>
+            {ledger.length === 0 ? <p className="ledger-empty">{t("No wallet activity has been recorded yet.")}</p> : (
               <div className="ledger-list">
                 {ledger.map((entry) => (
                   <article key={entry.id}>
                     <Receipt size={18} weight="light" />
-                    <div><strong>{ledgerLabel(entry.kind)}</strong><span>{formatRunTime(entry.createdAt)}{entry.note ? ` / ${entry.note}` : ""}</span></div>
+                    <div><strong>{ledgerLabel(entry.kind, t)}</strong><span>{formatDate(entry.createdAt)}{entry.note ? ` / ${t(entry.note)}` : ""}</span></div>
                     <div>
                       <strong className={entry.balanceDeltaCents < 0 ? "is-debit" : ""}>{entry.balanceDeltaCents === 0 ? "—" : `${entry.balanceDeltaCents > 0 ? "+" : "−"}${formatCents(Math.abs(entry.balanceDeltaCents))}`}</strong>
-                      <span>{entry.reservedDeltaCents === 0 ? "" : `${entry.reservedDeltaCents > 0 ? "+" : "−"}${formatCents(Math.abs(entry.reservedDeltaCents))} reserved`}</span>
+                      <span>{entry.reservedDeltaCents === 0 ? "" : `${entry.reservedDeltaCents > 0 ? "+" : "−"}${formatCents(Math.abs(entry.reservedDeltaCents))} ${t("reserved")}`}</span>
                     </div>
                   </article>
                 ))}
@@ -1349,8 +1347,8 @@ function AccountScreen({ session, account, runs, ledger, onNavigate, onOpenPanel
           </section>
 
           <div className="account-actions">
-            <button type="button" onClick={() => onNavigate("/studio")}>Open studio <ArrowRight size={17} /></button>
-            <button type="button" onClick={onSignOut}>Sign out <SignOut size={17} /></button>
+            <button type="button" onClick={() => onNavigate("/studio")}>{t("Open studio")} <ArrowRight size={17} /></button>
+            <button type="button" onClick={onSignOut}>{t("Sign out")} <SignOut size={17} /></button>
           </div>
         </div>
       )}
@@ -1359,6 +1357,7 @@ function AccountScreen({ session, account, runs, ledger, onNavigate, onOpenPanel
 }
 
 function RunScreen({ id, session, account, runs, onNavigate, onOpenPanel, onRemix }) {
+  const { formatCents, formatDate, t } = useLanguage();
   const cached = runs.find((run) => run.id === id) ?? null;
   const [record, setRecord] = useState(cached);
   const [loading, setLoading] = useState(Boolean(session && !cached));
@@ -1374,10 +1373,10 @@ function RunScreen({ id, session, account, runs, onNavigate, onOpenPanel, onRemi
     setLoading(true);
     apiRequest(`/api/generations/${encodeURIComponent(id)}`)
       .then((data) => { if (!cancelled) setRecord(data.generation); })
-      .catch((requestError) => { if (!cancelled) setError(requestError instanceof Error ? requestError.message : "The record could not be recovered."); })
+      .catch((requestError) => { if (!cancelled) setError(localizeError(requestError instanceof Error ? requestError.message : t("The record could not be recovered."), t)); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [cached, id, session]);
+  }, [cached, id, session, t]);
 
   const outcome = record ? outcomeById(record.outcome) : null;
 
@@ -1388,35 +1387,35 @@ function RunScreen({ id, session, account, runs, onNavigate, onOpenPanel, onRemi
         {!session ? (
           <AuthGate headingLevel="h1" tone="blue" eyebrow="Record sealed" title="Sign in to recover this run." copy="Run links resolve only inside the account that created them." onOpenPanel={onOpenPanel} />
         ) : loading ? (
-          <div className="run-loading"><CircleNotch className="spin" size={28} /> Recovering record</div>
+          <div className="run-loading"><CircleNotch className="spin" size={28} /> {t("Recovering record")}</div>
         ) : error || !record ? (
-          <section className="archive-zero-state"><SignalImage src="/assets/lmiere-specimen-idle.png" alt="A dormant specimen indicating a missing record" /><div><p>// Recovery failed</p><h2>Record not found.</h2><span>{error || "This run may belong to another account."}</span><button type="button" onClick={() => onNavigate("/archive")}>Return to archive <ArrowLeft size={18} /></button></div></section>
+          <section className="archive-zero-state"><SignalImage src="/assets/lmiere-specimen-idle.png" alt={t("A dormant specimen indicating a missing record")} /><div><p>// {t("Recovery failed")}</p><h2>{t("Record not found.")}</h2><span>{error || t("This run may belong to another account.")}</span><button type="button" onClick={() => onNavigate("/archive")}>{t("Return to archive")} <ArrowLeft size={18} /></button></div></section>
         ) : (
           <>
             <section className="run-page-intro">
-              <div><p>// Record {record.id}</p><h1>{record.prompt}</h1></div>
-              <div><span>Status</span><strong>{formatStatus(record.status)}</strong><span>Recovered</span><strong>{formatRunTime(record.completedAt || record.createdAt)}</strong></div>
+              <div><p>// {t("Record")} {record.id}</p><h1>{record.prompt}</h1></div>
+              <div><span>{t("Status")}</span><strong>{formatStatus(record.status, t)}</strong><span>{t("Recovered")}</span><strong>{formatDate(record.completedAt || record.createdAt)}</strong></div>
             </section>
 
             <section className="run-media-stage">
               {record.resultUrl ? <ResultMedia generation={record} interactive /> : <SignalImage src="/assets/lmiere-result-cabin.png" alt="Preview image while this run awaits a completed result" />}
-              <div className="run-media-index"><span>{outcome.signal}</span><span>{outcome.label}</span><span>{formatCents(record.chargeCents)}</span><span>{String(record.progress ?? 0).padStart(2, "0")}%</span></div>
+              <div className="run-media-index"><span>{outcome.signal}</span><span>{t(outcome.label)}</span><span>{formatCents(record.chargeCents)}</span><span>{String(record.progress ?? 0).padStart(2, "0")}%</span></div>
             </section>
 
             <section className="run-record-notes">
-              <div><p>// Prompt transcript</p><blockquote>{record.prompt}</blockquote></div>
+              <div><p>// {t("Prompt transcript")}</p><blockquote>{record.prompt}</blockquote></div>
               <dl>
-                <div><dt>Outcome</dt><dd>{outcome.label}</dd></div>
-                <div><dt>Exact charge</dt><dd>{formatCents(record.chargeCents)}</dd></div>
-                <div><dt>Created</dt><dd>{formatRunTime(record.createdAt)}</dd></div>
-                <div><dt>Completion</dt><dd>{formatRunTime(record.completedAt)}</dd></div>
+                <div><dt>{t("Outcome")}</dt><dd>{t(outcome.label)}</dd></div>
+                <div><dt>{t("Exact charge")}</dt><dd>{formatCents(record.chargeCents)}</dd></div>
+                <div><dt>{t("Created")}</dt><dd>{formatDate(record.createdAt)}</dd></div>
+                <div><dt>{t("Completion")}</dt><dd>{formatDate(record.completedAt)}</dd></div>
               </dl>
             </section>
 
             <div className="run-actions">
-              {record.resultUrl && <a href={record.resultUrl} download target="_blank" rel="noreferrer">Save result <DownloadSimple size={18} /></a>}
-              <button type="button" onClick={() => onRemix(record)}>Remix this prompt <ArrowRight size={18} /></button>
-              <button type="button" onClick={() => onNavigate("/archive")}>Back to archive <ArrowLeft size={18} /></button>
+              {record.resultUrl && <a href={record.resultUrl} download target="_blank" rel="noreferrer">{t("Save result")} <DownloadSimple size={18} /></a>}
+              <button type="button" onClick={() => onRemix(record)}>{t("Remix this prompt")} <ArrowRight size={18} /></button>
+              <button type="button" onClick={() => onNavigate("/archive")}>{t("Back to archive")} <ArrowLeft size={18} /></button>
             </div>
           </>
         )}
@@ -1457,70 +1456,74 @@ const LEGAL_COPY = {
 };
 
 function LegalScreen({ type, onNavigate }) {
+  const { t } = useLanguage();
   const document = LEGAL_COPY[type];
   return (
     <main className="legal-screen">
       <header className="legal-header">
-        <button type="button" onClick={() => onNavigate("/")}><BrandMark /><span>Lmiere<br />Field manual</span></button>
-        <span>Effective August 2, 2026<br />Beta operating draft</span>
-        <button type="button" onClick={() => onNavigate("/")}><ArrowLeft size={16} /> Return to manual</button>
+        <button type="button" onClick={() => onNavigate("/")}><BrandMark /><span>Lmiere<br />{t("Field manual")}</span></button>
+        <span>{t("Effective August 2, 2026")}<br />{t("Beta operating draft")}</span>
+        <LanguageSwitch className="language-switch-paper" />
+        <button type="button" onClick={() => onNavigate("/")}><ArrowLeft size={16} /> {t("Return to manual")}</button>
       </header>
       <article className="legal-document">
-        <header><p>{document.eyebrow}</p><h1>{document.title}</h1><span>{document.summary}</span></header>
+        <header><p>{t(document.eyebrow)}</p><h1>{t(document.title)}</h1><span>{t(document.summary)}</span></header>
         <div className="legal-sections">
-          {document.sections.map(([heading, copy], index) => <section key={heading}><span>{String(index + 1).padStart(2, "0")}</span><div><h2>{heading}</h2><p>{copy}</p></div></section>)}
+          {document.sections.map(([heading, copy], index) => <section key={heading}><span>{String(index + 1).padStart(2, "0")}</span><div><h2>{t(heading)}</h2><p>{t(copy)}</p></div></section>)}
         </div>
       </article>
-      <footer className="legal-footer"><FileText size={20} /><p>Lmiere Labs / Open field test</p><nav><button type="button" onClick={() => onNavigate("/privacy")}>Privacy</button><button type="button" onClick={() => onNavigate("/terms")}>Terms</button></nav></footer>
+      <footer className="legal-footer"><FileText size={20} /><p>{t("Lmiere Labs / Open field test")}</p><nav><button type="button" onClick={() => onNavigate("/privacy")}>{t("Privacy")}</button><button type="button" onClick={() => onNavigate("/terms")}>{t("Terms")}</button></nav></footer>
     </main>
   );
 }
 
 function NotFoundScreen({ onNavigate }) {
+  const { t } = useLanguage();
   return (
     <main className="not-found-screen">
       <BrandMark />
-      <p>// Field coordinate not found</p>
+      <p>// {t("Field coordinate not found")}</p>
       <h1>404</h1>
-      <span>This route has not been recovered.</span>
-      <button type="button" onClick={() => onNavigate("/")}>Return to the manual <ArrowLeft size={18} /></button>
+      <span>{t("This route has not been recovered.")}</span>
+      <button type="button" onClick={() => onNavigate("/")}>{t("Return to the manual")} <ArrowLeft size={18} /></button>
     </main>
   );
 }
 
 function ResetPasswordScreen({ onNavigate, onOpenPanel }) {
+  const { t } = useLanguage();
   const token = new URLSearchParams(window.location.search).get("token") || "";
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(token ? "" : "This reset link is missing its security token.");
+  const [error, setError] = useState(token ? "" : t("This reset link is missing its security token."));
   const [complete, setComplete] = useState(false);
 
   async function submit(event) {
     event.preventDefault();
     setError("");
     if (password.length < 8) {
-      setError("Use at least 8 characters for your new password.");
+      setError(t("Use at least 8 characters for your new password."));
       return;
     }
     if (password !== confirmPassword) {
-      setError("The passwords do not match.");
+      setError(t("The passwords do not match."));
       return;
     }
     if (!token || !authClient) {
-      setError("This reset link is not valid. Request a new link from sign in.");
+      setError(t("This reset link is not valid. Request a new link from sign in."));
       return;
     }
 
     setBusy(true);
     try {
       const response = await authClient.resetPassword({ newPassword: password, token });
-      if (response?.error) throw new Error(response.error.message ?? "The password could not be reset.");
+      if (response?.error) throw new Error(response.error.message ?? t("The password could not be reset."));
       setComplete(true);
       window.history.replaceState({}, "", "/reset-password");
     } catch (resetError) {
-      const message = resetError instanceof Error ? resetError.message : "The password could not be reset.";
-      setError(/expired|token|invalid/i.test(message) ? "This link expired or was already used. Request a new one from sign in." : message);
+      const message = resetError instanceof Error ? resetError.message : t("The password could not be reset.");
+      setError(/expired|token|invalid/i.test(message) ? t("This link expired or was already used. Request a new one from sign in.") : localizeError(message, t));
     } finally {
       setBusy(false);
     }
@@ -1528,27 +1531,27 @@ function ResetPasswordScreen({ onNavigate, onOpenPanel }) {
 
   return (
     <main className="reset-password-screen network-page">
-      <button className="network-wordmark" type="button" onClick={() => onNavigate("/")}><BrandMark dark /> Lmiere</button>
+      <div className="reset-password-topline"><button className="network-wordmark" type="button" onClick={() => onNavigate("/")}><BrandMark dark /> Lmiere</button><LanguageSwitch className="language-switch-night" /></div>
       <section className="reset-password-card">
-        <div><p>// Account recovery</p><h1>{complete ? "Key reset." : "Set a new key."}</h1></div>
+        <div><p>// {t("Account recovery")}</p><h1>{t(complete ? "Key reset." : "Set a new key.")}</h1></div>
         {complete ? (
           <>
-            <p>Your password is updated. Sign in again to reconnect the verified account and its private archive.</p>
-            <button className="panel-action" type="button" onClick={() => onOpenPanel("Sign in")}>Return to sign in <ArrowRight size={17} /></button>
+            <p>{t("Your password is updated. Sign in again to reconnect the verified account and its private archive.")}</p>
+            <button className="panel-action" type="button" onClick={() => onOpenPanel("Sign in")}>{t("Return to sign in")} <ArrowRight size={17} /></button>
           </>
         ) : (
           <form className="auth-form" onSubmit={submit}>
             <label>
-              <span>New password</span>
+              <span>{t("New password")}</span>
               <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" minLength={8} required />
             </label>
             <label>
-              <span>Confirm new password</span>
+              <span>{t("Confirm new password")}</span>
               <input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} autoComplete="new-password" minLength={8} required />
             </label>
             {error && <p className="auth-error" role="alert">{error}</p>}
             <button className="panel-action" type="submit" disabled={busy || !token}>
-              {busy ? <><CircleNotch className="spin" size={17} /> Resetting</> : <>Reset password <ArrowRight size={17} /></>}
+              {busy ? <><CircleNotch className="spin" size={17} /> {t("Resetting")}</> : <>{t("Reset password")} <ArrowRight size={17} /></>}
             </button>
           </form>
         )}
@@ -1558,6 +1561,7 @@ function ResetPasswordScreen({ onNavigate, onOpenPanel }) {
 }
 
 export function App() {
+  const { t } = useLanguage();
   const [route, setRoute] = useState(() => routeFromPath(window.location.pathname));
   const [panel, setPanel] = useState(null);
   const [panelPayload, setPanelPayload] = useState(null);
@@ -1633,8 +1637,8 @@ export function App() {
       "reset-password": "Reset password — Lmiere",
       "not-found": "Not found — Lmiere",
     }[route.name];
-    document.title = title;
-  }, [route.name]);
+    document.title = t(title);
+  }, [route.name, t]);
 
   function openPanel(nextPanel, payload = null) {
     setPanel(nextPanel);

@@ -9,7 +9,8 @@ export default async function handler(request, response) {
   try {
     const user = await requireVerifiedUser(request);
     const account = await getAccount(user.id);
-    await sendVerifiedAccountEmails(user, { gift: account.gift }).catch(() => null);
+    const language = request.headers["x-lmiere-language"] === "fr" ? "fr" : "en";
+    await sendVerifiedAccountEmails(user, { gift: account.gift, language }).catch(() => null);
     return sendJson(response, 200, account);
   } catch (error) {
     return sendJson(response, error.statusCode ?? 500, {

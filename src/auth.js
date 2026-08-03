@@ -58,6 +58,14 @@ export function isVerifiedSession(session) {
   return session?.user?.emailVerified === true;
 }
 
+function preferredLanguage() {
+  try {
+    return window.localStorage.getItem("lmiere-language") === "fr" ? "fr" : "en";
+  } catch {
+    return window.navigator.language?.toLowerCase().startsWith("fr") ? "fr" : "en";
+  }
+}
+
 export async function apiRequest(path, options = {}) {
   const { token } = await getSessionWithToken();
   if (!token) throw new Error("Sign in is required.");
@@ -67,6 +75,7 @@ export async function apiRequest(path, options = {}) {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
+      "X-Lmiere-Language": preferredLanguage(),
       ...options.headers,
     },
   });
