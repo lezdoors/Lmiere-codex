@@ -2629,6 +2629,159 @@ textarea:disabled {
   cursor: pointer;
 }
 
+.founder-gift-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  padding: 24px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: var(--electric-paper);
+  background:
+    linear-gradient(rgba(23, 39, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(23, 39, 255, 0.08) 1px, transparent 1px),
+    rgba(3, 8, 20, 0.92);
+  background-size: 24px 24px;
+  backdrop-filter: blur(14px);
+  animation: scrim-in 300ms ease both;
+}
+
+.founder-gift-card {
+  position: relative;
+  width: min(680px, 100%);
+  min-height: 590px;
+  border: 1px solid rgba(251, 250, 244, 0.9);
+  padding: clamp(34px, 6vw, 72px);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  isolation: isolate;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 80% 18%, rgba(23, 39, 255, 0.68), transparent 34%),
+    linear-gradient(145deg, #071227 0%, #03080f 74%);
+  box-shadow: 18px 18px 0 var(--electric);
+  animation: founder-signal-in 560ms cubic-bezier(0.2, 0.85, 0.24, 1) both;
+}
+
+.founder-gift-card::after {
+  content: "GIFT / 001";
+  position: absolute;
+  right: 20px;
+  bottom: 18px;
+  color: rgba(251, 250, 244, 0.45);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+}
+
+.founder-gift-card > p,
+.founder-gift-card > small {
+  position: relative;
+  z-index: 2;
+  margin: 0;
+  color: rgba(251, 250, 244, 0.68);
+  font-size: 9px;
+  letter-spacing: 0.13em;
+  line-height: 1.7;
+  text-transform: uppercase;
+}
+
+.founder-gift-card h2 {
+  position: relative;
+  z-index: 2;
+  margin: 45px 0 15px;
+  font-family: "Bodoni Moda", serif;
+  font-size: clamp(45px, 7vw, 78px);
+  font-weight: 400;
+  line-height: 0.93;
+  letter-spacing: -0.045em;
+}
+
+.founder-gift-card h2 em {
+  color: #8d98ff;
+  font-weight: inherit;
+}
+
+.founder-gift-card > strong {
+  position: relative;
+  z-index: 2;
+  color: var(--electric-paper);
+  font-family: "Bodoni Moda", serif;
+  font-size: clamp(70px, 13vw, 132px);
+  font-weight: 400;
+  line-height: 0.95;
+  letter-spacing: -0.07em;
+  text-shadow: 5px 5px 0 var(--electric);
+}
+
+.founder-gift-card blockquote {
+  position: relative;
+  z-index: 2;
+  max-width: 480px;
+  margin: 26px 0 30px;
+  color: rgba(251, 250, 244, 0.82);
+  font-family: "Bodoni Moda", serif;
+  font-size: clamp(18px, 3vw, 25px);
+  line-height: 1.45;
+}
+
+.founder-gift-card button {
+  position: relative;
+  z-index: 2;
+  min-height: 52px;
+  margin-top: auto;
+  border: 1px solid var(--electric-paper);
+  padding: 0 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 42px;
+  color: #071227;
+  background: var(--electric-paper);
+  cursor: pointer;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.founder-gift-card > small {
+  margin-top: 14px;
+}
+
+.founder-gift-orbit {
+  position: absolute;
+  z-index: 1;
+  top: -145px;
+  right: -145px;
+  width: 390px;
+  aspect-ratio: 1;
+  border: 1px solid rgba(251, 250, 244, 0.35);
+  border-radius: 50%;
+  animation: founder-orbit 16s linear infinite;
+}
+
+.founder-gift-orbit::before,
+.founder-gift-orbit::after {
+  content: "";
+  position: absolute;
+  border: 1px solid rgba(251, 250, 244, 0.18);
+  border-radius: 50%;
+}
+
+.founder-gift-orbit::before { inset: 48px; }
+.founder-gift-orbit::after { inset: 96px; }
+
+.founder-gift-orbit span {
+  position: absolute;
+  width: 16px;
+  aspect-ratio: 1;
+  background: var(--electric-paper);
+}
+
+.founder-gift-orbit span:nth-child(1) { top: 48%; left: -8px; }
+.founder-gift-orbit span:nth-child(2) { top: 12%; right: 54px; }
+.founder-gift-orbit span:nth-child(3) { right: 16px; bottom: 52px; }
+
 @keyframes panel-in {
   from { transform: translateX(100%); }
   to { transform: translateX(0); }
@@ -2637,6 +2790,15 @@ textarea:disabled {
 @keyframes scrim-in {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+
+@keyframes founder-signal-in {
+  from { opacity: 0; transform: translateY(28px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes founder-orbit {
+  to { transform: rotate(360deg); }
 }
 
 @media (max-width: 1180px) {
@@ -2691,6 +2853,29 @@ textarea:disabled {
 }
 
 @media (max-width: 860px) {
+  .founder-gift-backdrop {
+    padding: 14px;
+  }
+
+  .founder-gift-card {
+    min-height: min(680px, calc(100svh - 28px));
+    padding: 34px 26px;
+    box-shadow: 8px 8px 0 var(--electric);
+  }
+
+  .founder-gift-card h2 {
+    margin-top: 38px;
+  }
+
+  .founder-gift-card blockquote {
+    margin-top: 22px;
+  }
+
+  .founder-gift-orbit {
+    top: -205px;
+    right: -205px;
+  }
+
   .landing-screen,
   .studio-screen {
     height: auto;

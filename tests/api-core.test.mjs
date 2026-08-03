@@ -98,6 +98,21 @@ test("welcome email is branded, reply-friendly, and escapes account names", () =
   assert.match(email.html, /&lt;Ryan&gt;/);
 });
 
+test("founder gift email includes the isolated wallet credit and message", () => {
+  const email = welcomeEmail({
+    name: "Hossam",
+    gift: {
+      fromName: "Naoufal",
+      creditCents: 500,
+      message: "The pixels have accountants now.",
+    },
+  });
+  assert.match(email.subject, /Naoufal/);
+  assert.match(email.text, /\$5\.00/);
+  assert.match(email.text, /pixels have accountants/);
+  assert.match(email.html, /Founder transmission/);
+});
+
 test("wallet errors become stable user-facing responses", () => {
   assert.deepEqual(publicError(new Error("insufficient_credits")), {
     status: 402,

@@ -19,6 +19,23 @@ create table if not exists public.lmiere_wallets (
   check (reserved_cents <= balance_cents)
 );
 
+create table if not exists public.lmiere_account_grants (
+  email text primary key check (email = lower(email)),
+  credit_cents integer not null check (credit_cents > 0),
+  from_name text not null default 'Lmiere',
+  message text not null,
+  claimed_by_user_id uuid references neon_auth."user"(id) on delete set null,
+  claimed_at timestamptz,
+  acknowledged_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  check ((claimed_at is null and claimed_by_user_id is null) or claimed_at is not null)
+);
+
+create unique index if not exists lmiere_account_grants_claimed_user_idx
+  on public.lmiere_account_grants (claimed_by_user_id)
+  where claimed_by_user_id is not null;
+
 create table if not exists public.lmiere_generations (
   id text primary key,
   user_id uuid not null references neon_auth."user"(id) on delete cascade,
@@ -51,12 +68,19 @@ create table if not exists public.lmiere_wallet_ledger (
   id bigserial primary key,
   user_id uuid not null references neon_auth."user"(id) on delete cascade,
   generation_id text references public.lmiere_generations(id) on delete restrict,
-  kind text not null check (kind in ('initial_credit', 'credit', 'reserve', 'settle', 'release', 'refund')),
+  kind text not null check (kind in ('initial_credit', 'founder_gift', 'credit', 'reserve', 'settle', 'release', 'refund')),
   balance_delta_cents integer not null default 0,
   reserved_delta_cents integer not null default 0,
   note text,
   created_at timestamptz not null default now()
 );
+
+alter table public.lmiere_wallet_ledger
+  drop constraint if exists lmiere_wallet_ledger_kind_check;
+
+alter table public.lmiere_wallet_ledger
+  add constraint lmiere_wallet_ledger_kind_check
+  check (kind in ('initial_credit', 'founder_gift', 'credit', 'reserve', 'settle', 'release', 'refund'));
 
 create index if not exists lmiere_wallet_ledger_user_created_idx
   on public.lmiere_wallet_ledger (user_id, created_at desc);
@@ -103,6 +127,10 @@ declare
   v_email text;
   v_name text;
   v_inserted integer := 0;
+  v_prior_credit_cents integer := 0;
+  v_credit_delta_cents integer := 0;
+  v_grant public.lmiere_account_grants%rowtype;
+  v_has_grant boolean := false;
   v_wallet public.lmiere_wallets%rowtype;
 begin
   select email, coalesce(name, '')
@@ -123,12 +151,54 @@ begin
         display_name = excluded.display_name,
         updated_at = now();
 
+  select * into v_grant
+    from public.lmiere_account_grants
+    where email = lower(v_email)
+      and (claimed_at is null or claimed_by_user_id = p_user_id)
+    for update;
+  v_has_grant := found;
+
   insert into public.lmiere_wallets (user_id, balance_cents)
-  values (p_user_id, greatest(p_initial_credit_cents, 0))
+  values (p_user_id, 0)
   on conflict (user_id) do nothing;
   get diagnostics v_inserted = row_count;
 
-  if v_inserted = 1 and p_initial_credit_cents > 0 then
+  if v_has_grant and v_grant.claimed_at is null then
+    select coalesce(sum(greatest(balance_delta_cents, 0)), 0)::integer
+      into v_prior_credit_cents
+      from public.lmiere_wallet_ledger
+      where user_id = p_user_id;
+
+    v_credit_delta_cents := greatest(v_grant.credit_cents - v_prior_credit_cents, 0);
+
+    if v_credit_delta_cents > 0 then
+      update public.lmiere_wallets
+        set balance_cents = balance_cents + v_credit_delta_cents,
+            updated_at = now()
+        where user_id = p_user_id;
+
+      insert into public.lmiere_wallet_ledger (
+        user_id, kind, balance_delta_cents, note
+      ) values (
+        p_user_id,
+        'founder_gift',
+        v_credit_delta_cents,
+        'Founder allocation from ' || v_grant.from_name
+      );
+    end if;
+
+    update public.lmiere_account_grants
+      set claimed_by_user_id = p_user_id,
+          claimed_at = now(),
+          updated_at = now()
+      where email = v_grant.email
+      returning * into v_grant;
+  elsif v_inserted = 1 and p_initial_credit_cents > 0 then
+    update public.lmiere_wallets
+      set balance_cents = greatest(p_initial_credit_cents, 0),
+          updated_at = now()
+      where user_id = p_user_id;
+
     insert into public.lmiere_wallet_ledger (
       user_id, kind, balance_delta_cents, note
     ) values (
@@ -146,8 +216,38 @@ begin
     'displayName', v_name,
     'balanceCents', v_wallet.balance_cents,
     'reservedCents', v_wallet.reserved_cents,
-    'availableCents', v_wallet.balance_cents - v_wallet.reserved_cents
+    'availableCents', v_wallet.balance_cents - v_wallet.reserved_cents,
+    'gift', case
+      when v_has_grant
+        and v_grant.claimed_by_user_id = p_user_id
+        and v_grant.acknowledged_at is null
+      then jsonb_build_object(
+        'creditCents', v_grant.credit_cents,
+        'fromName', v_grant.from_name,
+        'message', v_grant.message
+      )
+      else null
+    end
   );
+end;
+$$;
+
+create or replace function public.lmiere_acknowledge_account_grant(
+  p_user_id uuid
+) returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.lmiere_account_grants
+    set acknowledged_at = coalesce(acknowledged_at, now()),
+        updated_at = now()
+    where claimed_by_user_id = p_user_id
+      and claimed_at is not null
+      and acknowledged_at is null;
+
+  return found;
 end;
 $$;
 

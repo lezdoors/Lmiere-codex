@@ -30,6 +30,8 @@ export default async function handler(request, response) {
     const readyToEnablePaidBeta = Boolean(
       database.auth.requireEmailVerification
       && database.schema?.guarded_reservations
+      && database.schema?.account_grants
+      && database.schema?.grant_acknowledgement
       && services.falKeyConfigured
       && services.durableMediaConfigured
       && services.transactionalEmailConfigured

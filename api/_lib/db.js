@@ -65,6 +65,7 @@ export async function getAccount(userId) {
   const [accountRow] = await sql`
     select public.lmiere_ensure_wallet(${userId}::uuid, ${initialCreditCents()}::integer) as account
   `;
+  const { gift = null, ...account } = accountRow.account;
   const runs = await sql`
     select id, outcome, model, prompt, status, charge_cents, progress,
            result_url, result_content_type, error, created_at, completed_at
@@ -82,10 +83,19 @@ export async function getAccount(userId) {
       limit 50
   `;
   return {
-    account: accountRow.account,
+    account,
+    gift,
     runs: runs.map(mapGeneration),
     ledger: ledger.map(mapLedgerEntry),
   };
+}
+
+export async function acknowledgeAccountGrant(userId) {
+  const sql = db();
+  const [row] = await sql`
+    select public.lmiere_acknowledge_account_grant(${userId}::uuid) as acknowledged
+  `;
+  return row?.acknowledged === true;
 }
 
 export async function reserveGeneration({ id, userId, outcome, model, prompt, chargeCents }) {
@@ -198,7 +208,9 @@ export async function getDatabaseReadiness() {
   const [schema] = await sql`
     select
       to_regclass('public.lmiere_wallets') is not null as wallets,
+      to_regclass('public.lmiere_account_grants') is not null as account_grants,
       to_regclass('public.lmiere_email_events') is not null as email_events,
+      to_regprocedure('public.lmiere_acknowledge_account_grant(uuid)') is not null as grant_acknowledgement,
       to_regprocedure('public.lmiere_reserve_generation_v2(text,uuid,text,text,text,integer,integer,integer,integer,integer)') is not null as guarded_reservations
   `;
   const [users] = await sql`

@@ -101,12 +101,31 @@ function routeFromPath(pathname = "/") {
 function ledgerLabel(kind) {
   return {
     initial_credit: "Opening test credit",
+    founder_gift: "Founder gift",
     credit: "Credit added",
     reserve: "Run approved",
     settle: "Completed generation",
     release: "Charge released",
     refund: "Credit returned",
   }[kind] ?? "Wallet activity";
+}
+
+function FounderGift({ gift, onAccept }) {
+  if (!gift) return null;
+
+  return (
+    <div className="founder-gift-backdrop" role="presentation">
+      <section className="founder-gift-card" role="dialog" aria-modal="true" aria-labelledby="founder-gift-title">
+        <div className="founder-gift-orbit" aria-hidden="true"><span /><span /><span /></div>
+        <p>// Private founder transmission</p>
+        <h2 id="founder-gift-title">A little chaos,<br /><em>on {gift.fromName}.</em></h2>
+        <strong>{formatCents(gift.creditCents)}</strong>
+        <blockquote>“{gift.message}”</blockquote>
+        <button type="button" onClick={onAccept}>Accept the pixels <ArrowRight size={17} /></button>
+        <small>This credit belongs only to your account.</small>
+      </section>
+    </div>
+  );
 }
 
 function BrandMark({ dark = false }) {
@@ -1546,6 +1565,7 @@ export function App() {
   const [account, setAccount] = useState(null);
   const [runs, setRuns] = useState([]);
   const [ledger, setLedger] = useState([]);
+  const [gift, setGift] = useState(null);
   const [studioDraft, setStudioDraft] = useState(null);
 
   const refreshAccount = useCallback(async () => {
@@ -1554,12 +1574,14 @@ export function App() {
       setAccount(data.account);
       setRuns(data.runs ?? []);
       setLedger(data.ledger ?? []);
+      setGift(data.gift ?? null);
       return data;
     } catch (error) {
       if (error instanceof Error && error.message.includes("Sign in")) {
         setAccount(null);
         setRuns([]);
         setLedger([]);
+        setGift(null);
       }
       return null;
     }
@@ -1575,6 +1597,7 @@ export function App() {
       setAccount(null);
       setRuns([]);
       setLedger([]);
+      setGift(null);
     }
   }, [refreshAccount]);
 
@@ -1584,6 +1607,7 @@ export function App() {
       setAccount(null);
       setRuns([]);
       setLedger([]);
+      setGift(null);
     });
   }, [refreshIdentity]);
 
@@ -1647,7 +1671,18 @@ export function App() {
     setAccount(null);
     setRuns([]);
     setLedger([]);
+    setGift(null);
     closePanel();
+  }
+
+  async function acceptFounderGift() {
+    const currentGift = gift;
+    setGift(null);
+    try {
+      await apiRequest("/api/account-gift", { method: "POST" });
+    } catch {
+      setGift(currentGift);
+    }
   }
 
   let page;
@@ -1697,6 +1732,7 @@ export function App() {
         onAuthenticated={refreshIdentity}
         onSignOut={signOut}
       />
+      <FounderGift gift={gift} onAccept={acceptFounderGift} />
     </>
   );
 }

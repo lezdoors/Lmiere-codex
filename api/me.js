@@ -9,7 +9,7 @@ export default async function handler(request, response) {
   try {
     const user = await requireVerifiedUser(request);
     const account = await getAccount(user.id);
-    await sendVerifiedAccountEmails(user).catch(() => null);
+    await sendVerifiedAccountEmails(user, { gift: account.gift }).catch(() => null);
     return sendJson(response, 200, account);
   } catch (error) {
     return sendJson(response, error.statusCode ?? 500, {

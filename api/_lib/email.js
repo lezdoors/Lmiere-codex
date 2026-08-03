@@ -63,15 +63,22 @@ function emailShell({ eyebrow, heading, copy, actionLabel, actionUrl, footer }) 
 </html>`;
 }
 
-export function welcomeEmail({ name }) {
+function formatCredit(cents) {
+  return `$${(cents / 100).toFixed(2)}`;
+}
+
+export function welcomeEmail({ name, gift = null }) {
   const greeting = firstName(name);
+  const giftLine = gift
+    ? `${gift.fromName} left ${formatCredit(gift.creditCents)} in your private wallet. ${gift.message}`
+    : null;
   return {
-    subject: "Your Lmiere account is verified",
-    text: `Welcome to Lmiere, ${greeting}. Your private wallet and generation archive are ready. Open the studio: https://lmiere.com/studio\n\nQuestions? Reply to this email.`,
+    subject: gift ? `${gift.fromName} left you a Lmiere founder gift` : "Your Lmiere account is verified",
+    text: `Welcome to Lmiere, ${greeting}. ${giftLine || "Your private wallet and generation archive are ready."} Open the studio: https://lmiere.com/studio\n\nQuestions? Reply to this email.`,
     html: emailShell({
-      eyebrow: "Account confirmed",
-      heading: `Welcome to the field, ${greeting}.`,
-      copy: "Your private wallet and generation archive are ready. Every run, result, and credit movement now stays attached to this verified account.",
+      eyebrow: gift ? "Founder transmission" : "Account confirmed",
+      heading: gift ? `A signal for you, ${greeting}.` : `Welcome to the field, ${greeting}.`,
+      copy: giftLine || "Your private wallet and generation archive are ready. Every run, result, and credit movement now stays attached to this verified account.",
       actionLabel: "Open the studio",
       actionUrl: "https://lmiere.com/studio",
       footer: "Questions or something unexpected? Reply to this email and a human will read it.",
@@ -136,7 +143,7 @@ async function sendClaimedEmail({ userId, kind, to, content }) {
   }
 }
 
-export async function sendVerifiedAccountEmails(user) {
+export async function sendVerifiedAccountEmails(user, { gift = null } = {}) {
   if (!isTransactionalEmailConfigured()) return { configured: false };
 
   const results = [];
@@ -144,7 +151,7 @@ export async function sendVerifiedAccountEmails(user) {
     userId: user.id,
     kind: "welcome",
     to: user.email,
-    content: welcomeEmail(user),
+    content: welcomeEmail({ ...user, gift }),
   }));
 
   const founders = founderRecipients();
