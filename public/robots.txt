@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /account
+Disallow: /archive
+Disallow: /reset-password
+Disallow: /runs/
+Disallow: /studio
+Disallow: /api/
+
+Sitemap: https://lmiere.com/sitemap.xml

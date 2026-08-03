@@ -29,9 +29,12 @@ export default async function handler(request, response) {
     };
     const readyToEnablePaidBeta = Boolean(
       database.auth.requireEmailVerification
+      && database.auth.customEmailProvider
+      && database.schema?.wallets
       && database.schema?.guarded_reservations
       && database.schema?.account_grants
       && database.schema?.grant_acknowledgement
+      && database.schema?.email_events
       && services.falKeyConfigured
       && services.durableMediaConfigured
       && services.transactionalEmailConfigured

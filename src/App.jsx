@@ -114,9 +114,11 @@ function FounderGift({ gift, onAccept }) {
 
 function BrandMark({ dark = false }) {
   return (
-    <span className={`brand-seal ${dark ? "brand-seal-dark" : ""}`} aria-hidden="true">
-      L<Sparkle size={11} weight="fill" />
-    </span>
+    <svg className={`brand-seal ${dark ? "brand-seal-dark" : ""}`} viewBox="0 0 51 51" aria-hidden="true">
+      <path fillRule="evenodd" clipRule="evenodd" d="M0 0H51V51H0ZM2 2V49H49V2Z" />
+      <path d="M44.32574462890625 0V14.25604248046875H223.6187744140625V1485.7439575195312H44.32574462890625V1500H593.6187744140625V1485.7439575195312H414.6187744140625V14.25604248046875H723.6187744140625Q841.6187744140625 14.25604248046875 914.7396850585938 46.2908935546875Q987.860595703125 78.32574462890625 1026.8349914550781 136.7745361328125Q1065.8093872070312 195.22332763671875 1079.9302978515625 275.1116638183594Q1094.0512084960938 355 1094.0512084960938 450H1108.6002807617188V0Z" transform="translate(10.61175 36.0125) scale(.0145 -.0145)" />
+      <path d="M208,144a15.78,15.78,0,0,1-10.42,14.94L146,178l-19,51.62a15.92,15.92,0,0,1-29.88,0L78,178l-51.62-19a15.92,15.92,0,0,1,0-29.88L78,110l19-51.62a15.92,15.92,0,0,1,29.88,0L146,110l51.62,19A15.78,15.78,0,0,1,208,144ZM152,48h16V64a8,8,0,0,0,16,0V48h16a8,8,0,0,0,0-16H184V16a8,8,0,0,0-16,0V32H152a8,8,0,0,0,0,16Zm88,32h-8V72a8,8,0,0,0-16,0v8h-8a8,8,0,0,0,0,16h8v8a8,8,0,0,0,16,0V96h8a8,8,0,0,0,0-16Z" transform="translate(29.38825 20) scale(.04296875)" />
+    </svg>
   );
 }
 
@@ -737,6 +739,7 @@ function SidePanel({
           <div className="panel-content result-panel">
             <p className="panel-kicker">{t("Run")} {result.id} / {formatStatus(result.status, t)}</p>
             <ResultMedia generation={result} />
+            <p className="ai-provenance"><Sparkle size={12} weight="fill" /> {t("AI-generated media")}</p>
             <div className="result-panel-meta">
               <span>{outcomeById(result.outcome).signal}</span>
               <span>{t(outcomeById(result.outcome).label)}</span>
@@ -768,7 +771,7 @@ function LandingScreen({ onEnterStudio, onOpenPanel, onNavigate, session }) {
 
           <div className="landing-meta" aria-label="Edition details">
             <span>{t("Issue 001")}<br />{t("Pay-per-generation")}</span>
-            <span>No. LM-001-FG<br />{t("Open beta")}</span>
+            <span>No. LM-001-FG<br />{t("Private beta")}</span>
           </div>
 
           <nav className="landing-nav" aria-label="Landing navigation">
@@ -787,7 +790,7 @@ function LandingScreen({ onEnterStudio, onOpenPanel, onNavigate, session }) {
         <section className="landing-hero">
           <SignalImage
             className="landing-machine"
-            src="/assets/lmiere-field-machine.png"
+            src="/assets/lmiere-field-machine.webp"
             alt="A meteorite fused with a precision camera mechanism, drawn like a scientific blueprint"
             loading="eager"
           />
@@ -859,11 +862,11 @@ function LandingScreen({ onEnterStudio, onOpenPanel, onNavigate, session }) {
 
         <div className="field-record-grid">
           <figure className="field-record field-record-cabin">
-            <SignalImage src="/assets/lmiere-result-cabin.png" alt="A glass cabin glowing in a wet forest, shown as a completed generation" />
+            <SignalImage src="/assets/lmiere-result-cabin.webp" alt="A glass cabin glowing in a wet forest, shown as a completed generation" />
             <figcaption><span>Record LM–029</span><strong>{t("A memory of rain inside a glass house")}</strong><small>{t("Cinematic motion")} / {formatPrice(0.42)}</small></figcaption>
           </figure>
           <figure className="field-record field-record-specimen">
-            <SignalImage src="/assets/lmiere-specimen-awake.png" alt="A luminous neural specimen bridging an archival drawing and a living network" />
+            <SignalImage src="/assets/lmiere-specimen-awake.webp" alt="A luminous neural specimen bridging an archival drawing and a living network" />
             <figcaption><span>Specimen LM–001</span><strong>{t("The network, awake")}</strong><small>{t("Highest quality")} / {formatPrice(0.76)}</small></figcaption>
           </figure>
         </div>
@@ -899,7 +902,7 @@ function LandingScreen({ onEnterStudio, onOpenPanel, onNavigate, session }) {
       </section>
 
       <section className="landing-closing-section">
-        <SignalImage className="landing-closing-image" src="/assets/lmiere-specimen-idle.png" alt="A dormant neural specimen fading from archival paper into a dark network" />
+        <SignalImage className="landing-closing-image" src="/assets/lmiere-specimen-idle.webp" alt="A dormant neural specimen fading from archival paper into a dark network" />
         <div>
           <p className="landing-kicker">// {t("Machine standing by")}</p>
           <h2>{t("Make the thing")}<br />{t("you cannot find.")}</h2>
@@ -1146,7 +1149,7 @@ function StudioScreen({
           </figcaption>
           <div className="studio-output-frame">
             {result ? <ResultMedia generation={result} /> : (
-              <img src="/assets/lmiere-result-cabin.png" alt="A glass cabin glowing in a forest" />
+              <img src="/assets/lmiere-result-cabin.webp" alt="A glass cabin glowing in a forest" />
             )}
             {isRunning && (
               <div className="studio-output-scan" aria-live="polite">
@@ -1157,6 +1160,9 @@ function StudioScreen({
               <div className="studio-output-complete" aria-live="polite">
                 <Check size={16} weight="bold" /> {t("Run complete")}
               </div>
+            )}
+            {phase === "complete" && (
+              <span className="studio-output-provenance"><Sparkle size={11} weight="fill" /> {t("AI-generated media")}</span>
             )}
           </div>
           <div className="studio-progress-row">
@@ -1235,7 +1241,7 @@ function ArchiveMedia({ run }) {
   }
   return (
     <SignalImage
-      src={run?.resultUrl || "/assets/lmiere-result-cabin.png"}
+      src={run?.resultUrl || "/assets/lmiere-result-cabin.webp"}
       alt={run?.resultUrl ? run.prompt : t("A dormant sample record waiting for a completed generation")}
     />
   );
@@ -1276,7 +1282,7 @@ function ArchiveScreen({ session, account, runs, onNavigate, onOpenPanel }) {
           />
         ) : runs.length === 0 ? (
           <section className="archive-zero-state">
-            <SignalImage src="/assets/lmiere-specimen-idle.png" alt="A dormant network specimen waiting for its first run" />
+            <SignalImage src="/assets/lmiere-specimen-idle.webp" alt="A dormant network specimen waiting for its first run" />
             <div><p>// {t("No recovered records")}</p><h2>{t("The archive is waiting.")}</h2><span>{t("Begin with one sentence and one visible price.")}</span><button type="button" onClick={() => onNavigate("/studio")}>{t("Make the first record")} <ArrowRight size={18} /></button></div>
           </section>
         ) : (
@@ -1317,7 +1323,7 @@ function AccountScreen({ session, account, runs, ledger, onNavigate, onOpenPanel
       ) : (
         <div className="account-page-body">
           <section className="network-page-intro">
-            <video className="account-signal-video" src="/assets/lmiere-signal-ripple.mp4" poster="/assets/lmiere-specimen-idle.png" autoPlay muted loop playsInline preload="metadata" aria-hidden="true" />
+            <video className="account-signal-video" src="/assets/lmiere-signal-ripple.mp4" poster="/assets/lmiere-specimen-idle.webp" autoPlay muted loop playsInline preload="metadata" aria-hidden="true" />
             <div><p>// {t("Account ledger")}</p><h1>{t("Wallet")}<br /><em>{t("signal.")}</em></h1></div>
             <p>{session.user.email}<br />{t("Every credit movement is attached to this account and its private run history.")}</p>
           </section>
@@ -1389,7 +1395,7 @@ function RunScreen({ id, session, account, runs, onNavigate, onOpenPanel, onRemi
         ) : loading ? (
           <div className="run-loading"><CircleNotch className="spin" size={28} /> {t("Recovering record")}</div>
         ) : error || !record ? (
-          <section className="archive-zero-state"><SignalImage src="/assets/lmiere-specimen-idle.png" alt={t("A dormant specimen indicating a missing record")} /><div><p>// {t("Recovery failed")}</p><h2>{t("Record not found.")}</h2><span>{error || t("This run may belong to another account.")}</span><button type="button" onClick={() => onNavigate("/archive")}>{t("Return to archive")} <ArrowLeft size={18} /></button></div></section>
+          <section className="archive-zero-state"><SignalImage src="/assets/lmiere-specimen-idle.webp" alt={t("A dormant specimen indicating a missing record")} /><div><p>// {t("Recovery failed")}</p><h2>{t("Record not found.")}</h2><span>{error || t("This run may belong to another account.")}</span><button type="button" onClick={() => onNavigate("/archive")}>{t("Return to archive")} <ArrowLeft size={18} /></button></div></section>
         ) : (
           <>
             <section className="run-page-intro">
@@ -1398,7 +1404,8 @@ function RunScreen({ id, session, account, runs, onNavigate, onOpenPanel, onRemi
             </section>
 
             <section className="run-media-stage">
-              {record.resultUrl ? <ResultMedia generation={record} interactive /> : <SignalImage src="/assets/lmiere-result-cabin.png" alt="Preview image while this run awaits a completed result" />}
+              {record.resultUrl ? <ResultMedia generation={record} interactive /> : <SignalImage src="/assets/lmiere-result-cabin.webp" alt="Preview image while this run awaits a completed result" />}
+              {record.resultUrl && <span className="run-media-provenance"><Sparkle size={12} weight="fill" /> {t("AI-generated media")}</span>}
               <div className="run-media-index"><span>{outcome.signal}</span><span>{t(outcome.label)}</span><span>{formatCents(record.chargeCents)}</span><span>{String(record.progress ?? 0).padStart(2, "0")}%</span></div>
             </section>
 
@@ -1447,6 +1454,7 @@ const LEGAL_COPY = {
       ["Beta service", "Features, generation routes, pricing, and availability may change while the product is tested. Lmiere may pause a route when reliability or provider availability requires it."],
       ["Credits and completed runs", "The exact price is shown before a run begins. A charge is settled only after a generation completes; failed or cancelled runs release the reservation. Test credits are not cash and are not transferable."],
       ["Your prompts and results", "You remain responsible for the prompts you submit and how you use generated results. Do not submit material you do not have the right to use or content that violates applicable law."],
+      ["AI output transparency", "Results are produced or altered using AI and are labeled in Lmiere. Do not remove or conceal the disclosure when a result could reasonably be mistaken for an authentic event, person, or public-interest record."],
       ["Acceptable use", "Do not use Lmiere to harm people, impersonate others deceptively, exploit minors, create illegal content, attack systems, evade safeguards, or interfere with another member’s account."],
       ["Availability and limits", "Generation systems can fail, queue, or return unexpected results. Lmiere will make reasonable efforts to release charges for incomplete runs but does not guarantee continuous availability or a particular creative result."],
       ["Contact", "Account and product questions can be sent to support@lmiere.com. Billing questions can be sent to billing@lmiere.com."],
@@ -1638,6 +1646,24 @@ export function App() {
       "not-found": "Not found — Lmiere",
     }[route.name];
     document.title = t(title);
+
+    const privateRoute = ["studio", "archive", "run", "account", "reset-password", "not-found"].includes(route.name);
+    const robots = document.querySelector('meta[name="robots"]');
+    if (robots) robots.setAttribute("content", privateRoute ? "noindex,nofollow" : "index,follow,max-image-preview:large");
+
+    const themeColor = document.querySelector('meta[name="theme-color"]');
+    if (themeColor) {
+      const color = route.name === "archive" || route.name === "run"
+        ? "#1727FF"
+        : ["studio", "account", "reset-password"].includes(route.name) ? "#03100D" : "#EEE6D6";
+      themeColor.setAttribute("content", color);
+    }
+
+    const canonical = document.querySelector('link[rel="canonical"]');
+    if (canonical) {
+      const publicPath = route.name === "privacy" || route.name === "terms" ? route.path : "/";
+      canonical.setAttribute("href", `https://lmiere.com${publicPath}`);
+    }
   }, [route.name, t]);
 
   function openPanel(nextPanel, payload = null) {

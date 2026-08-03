@@ -1,4 +1,26 @@
-@import url("https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,500&family=IBM+Plex+Mono:wght@400;500&display=swap");
+@font-face {
+  font-family: "Bodoni Moda";
+  src: url("/fonts/BodoniModa-Variable.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("/fonts/IBMPlexMono-Regular.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("/fonts/IBMPlexMono-Medium.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
 
 :root {
   font-family: "IBM Plex Mono", monospace;
@@ -61,6 +83,73 @@ textarea:disabled {
   cursor: wait;
 }
 
+.fatal-screen {
+  min-height: 100svh;
+  padding: clamp(28px, 7vw, 100px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  color: var(--signal);
+  background: var(--night);
+}
+
+.fatal-mark {
+  width: 58px;
+  height: 58px;
+}
+
+.fatal-mark img {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.fatal-screen > p,
+.fatal-screen > span,
+.fatal-screen > button {
+  font-size: 10px;
+  line-height: 1.7;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.fatal-screen > p {
+  margin: 42px 0 0;
+  color: var(--sulfur);
+}
+
+.fatal-screen h1 {
+  max-width: 920px;
+  margin: 18px 0 0;
+  font-family: "Bodoni Moda", serif;
+  font-size: clamp(54px, 10vw, 132px);
+  font-weight: 400;
+  line-height: 0.84;
+}
+
+.fatal-screen > span {
+  max-width: 620px;
+  margin-top: 34px;
+  color: var(--signal-muted);
+  text-transform: none;
+}
+
+.fatal-screen > button {
+  width: fit-content;
+  min-height: 50px;
+  margin-top: 28px;
+  border: 1px solid var(--sulfur);
+  padding: 0 18px;
+  color: var(--sulfur);
+  background: transparent;
+  cursor: pointer;
+}
+
+.fatal-screen > button:hover {
+  color: var(--night);
+  background: var(--sulfur);
+}
+
 .landing-screen {
   position: relative;
   min-height: 100svh;
@@ -114,22 +203,14 @@ textarea:disabled {
 .brand-seal {
   width: 51px;
   height: 51px;
-  border: 2px solid currentColor;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
+  display: block;
   flex: 0 0 auto;
-  font-family: "Bodoni Moda", serif;
-  font-size: 29px;
-  line-height: 1;
+  fill: currentColor;
 }
 
 .brand-seal-dark {
   width: 39px;
   height: 39px;
-  border-width: 1px;
-  font-size: 23px;
 }
 
 .landing-meta {
@@ -459,6 +540,10 @@ textarea:disabled {
   display: block;
   isolation: isolate;
   background: currentColor;
+}
+
+.signal-image.landing-machine {
+  position: absolute;
 }
 
 .signal-image > img {
@@ -1299,6 +1384,28 @@ textarea:disabled {
   background: var(--sulfur);
 }
 
+.studio-output-provenance,
+.run-media-provenance {
+  position: absolute;
+  z-index: 4;
+  top: 12px;
+  left: 12px;
+  min-height: 28px;
+  border: 1px solid currentColor;
+  padding: 0 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.studio-output-provenance {
+  color: var(--sulfur);
+  background: rgba(3, 16, 13, 0.9);
+}
+
 .studio-progress-row {
   margin-top: 9px;
   display: flex;
@@ -1716,6 +1823,22 @@ textarea:disabled {
   width: 100%;
   display: block;
   border: 1px solid var(--sulfur);
+}
+
+.ai-provenance {
+  min-height: 35px;
+  margin: 0;
+  border-right: 1px solid var(--signal-faint);
+  border-bottom: 1px solid var(--signal-faint);
+  border-left: 1px solid var(--signal-faint);
+  padding: 0 11px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--sulfur);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .result-panel-meta {
@@ -2405,7 +2528,13 @@ textarea:disabled {
 }
 
 .run-media-stage {
+  position: relative;
   margin: 0 clamp(26px, 7vw, 105px);
+}
+
+.run-media-provenance {
+  color: var(--electric-paper);
+  background: rgba(23, 39, 255, 0.88);
 }
 
 .run-media-stage > .signal-image,
