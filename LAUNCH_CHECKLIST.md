@@ -13,6 +13,8 @@
 ## Paid public beta
 
 - Do not enable until Stripe checkout, signed webhooks, tax/VAT handling, receipts, refunds, and failed-payment recovery have been tested.
+- In test mode, complete all three credit packs through hosted Checkout and confirm repeated webhook delivery never credits a wallet twice.
+- Replace the test secret with a least-privilege restricted key, set a Vercel sensitive environment value, and register the production webhook endpoint only after the production deployment is approved.
 - Reconcile Fal route cost manually and preserve margin. Fal does not currently expose a dependable public pricing API for automatic customer-price synchronization.
 - Replace the beta legal draft with the actual controller/company identity, address, governing law, consumer terms, retention schedule, and processor list.
 - Complete Morocco CNDP notification/authorization work and GDPR access, export, correction, and deletion operations.

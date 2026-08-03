@@ -20,7 +20,10 @@ export default async function handler(request, response) {
       transactionalEmailConfigured: Boolean(process.env.RESEND_API_KEY && process.env.LMIERE_EMAIL_FROM),
       emailWebhookConfigured: Boolean(process.env.RESEND_WEBHOOK_SECRET),
       privateBetaAllowlistConfigured: Boolean(process.env.LMIERE_ALLOWED_EMAILS?.trim()),
-      billingConfigured: Boolean(process.env.STRIPE_RESTRICTED_KEY && process.env.STRIPE_WEBHOOK_SECRET),
+      billingConfigured: Boolean(
+        (process.env.STRIPE_RESTRICTED_KEY || process.env.STRIPE_SECRET_KEY)
+        && process.env.STRIPE_WEBHOOK_SECRET,
+      ),
     };
     const safeguards = {
       userDailyLimitCents: userDailyLimitCents(),
@@ -35,11 +38,15 @@ export default async function handler(request, response) {
       && database.schema?.account_grants
       && database.schema?.grant_acknowledgement
       && database.schema?.email_events
+      && database.schema?.stripe_checkouts
+      && database.schema?.stripe_events
+      && database.schema?.stripe_crediting
       && services.falKeyConfigured
       && services.durableMediaConfigured
       && services.transactionalEmailConfigured
       && services.emailWebhookConfigured
       && services.privateBetaAllowlistConfigured
+      && services.billingConfigured
       && safeguards.userDailyLimitCents > 0
       && safeguards.globalDailyLimitCents > 0
       && safeguards.maxActiveGenerations > 0

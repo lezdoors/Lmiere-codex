@@ -9,6 +9,12 @@ import {
 import { welcomeEmail } from "../api/_lib/email.js";
 import { extractMedia, OUTCOME_CONFIG, submitFal } from "../api/_lib/fal.js";
 import { publicError } from "../api/_lib/http.js";
+import {
+  CREDIT_PACKS,
+  creditPack,
+  stripeKey,
+  verifiedCheckoutCredit,
+} from "../api/_lib/stripe.js";
 
 test("generation routes map to the intended provider models and customer prices", () => {
   assert.deepEqual(
@@ -139,4 +145,67 @@ test("wallet errors become stable user-facing responses", () => {
     status: 429,
     message: "This account reached its daily beta limit. Try again tomorrow.",
   });
+});
+
+test("Stripe credit packs are fixed server-side and checkout amounts are revalidated", () => {
+  assert.deepEqual(
+    Object.values(CREDIT_PACKS).map(({ id, amountCents }) => ({ id, amountCents })),
+    [
+      { id: "signal-10", amountCents: 1000 },
+      { id: "signal-25", amountCents: 2500 },
+      { id: "signal-50", amountCents: 5000 },
+    ],
+  );
+  assert.equal(creditPack("unknown"), null);
+
+  const credit = verifiedCheckoutCredit({
+    id: "cs_test_lmiere",
+    currency: "usd",
+    amount_total: 2500,
+    payment_status: "paid",
+    payment_intent: "pi_test_lmiere",
+    customer: "cus_test_lmiere",
+    metadata: {
+      lmiere_user_id: "11111111-1111-4111-8111-111111111111",
+      lmiere_pack_id: "signal-25",
+      lmiere_credit_cents: "2500",
+    },
+  });
+  assert.equal(credit.amountCents, 2500);
+  assert.equal(credit.packId, "signal-25");
+
+  assert.throws(() => verifiedCheckoutCredit({
+    id: "cs_test_tampered",
+    currency: "usd",
+    amount_total: 1000,
+    payment_status: "paid",
+    metadata: {
+      lmiere_user_id: "11111111-1111-4111-8111-111111111111",
+      lmiere_pack_id: "signal-25",
+      lmiere_credit_cents: "2500",
+    },
+  }), /amount does not match/i);
+});
+
+test("Stripe stays locked to test credentials until live mode is deliberately enabled", () => {
+  const previous = {
+    secret: process.env.STRIPE_SECRET_KEY,
+    restricted: process.env.STRIPE_RESTRICTED_KEY,
+    testMode: process.env.LMIERE_STRIPE_TEST_MODE,
+  };
+  delete process.env.STRIPE_RESTRICTED_KEY;
+  delete process.env.LMIERE_STRIPE_TEST_MODE;
+  process.env.STRIPE_SECRET_KEY = `sk${"_live_not_allowed"}`;
+  assert.throws(() => stripeKey(), /locked to Stripe test mode/);
+  process.env.STRIPE_SECRET_KEY = `sk${"_test_allowed"}`;
+  assert.equal(stripeKey(), `sk${"_test_allowed"}`);
+
+  for (const [key, value] of Object.entries({
+    STRIPE_SECRET_KEY: previous.secret,
+    STRIPE_RESTRICTED_KEY: previous.restricted,
+    LMIERE_STRIPE_TEST_MODE: previous.testMode,
+  })) {
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
+  }
 });

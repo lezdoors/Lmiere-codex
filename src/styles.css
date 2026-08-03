@@ -2411,6 +2411,139 @@ textarea:disabled {
   color: var(--signal-muted);
 }
 
+.credit-packs-section {
+  margin: clamp(60px, 8vw, 110px) clamp(24px, 7vw, 105px) 0;
+}
+
+.credit-packs-section > header {
+  min-height: 105px;
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 30px;
+  border-bottom: 1px solid var(--signal-faint);
+  padding-bottom: 20px;
+}
+
+.credit-packs-section > header p,
+.credit-packs-section > header > span,
+.credit-pack-footnote,
+.checkout-notice,
+.checkout-error {
+  margin: 0;
+  color: var(--signal-muted);
+  font-size: 8px;
+  line-height: 1.6;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.credit-packs-section h2 {
+  margin: 8px 0 0;
+  font-family: "Bodoni Moda", serif;
+  font-size: clamp(42px, 5vw, 62px);
+  font-weight: 400;
+  line-height: 0.95;
+}
+
+.credit-packs-section > header > span {
+  text-align: right;
+}
+
+.credit-pack-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-right: 1px solid var(--signal-faint);
+  border-left: 1px solid var(--signal-faint);
+}
+
+.credit-pack-grid button {
+  min-height: 310px;
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-content: space-between;
+  gap: 16px;
+  border: 0;
+  border-right: 1px solid var(--signal-faint);
+  border-bottom: 1px solid var(--signal-faint);
+  padding: 24px;
+  color: var(--signal);
+  background: rgba(119, 154, 115, 0.025);
+  text-align: left;
+  cursor: pointer;
+  transition: color 180ms ease, background 180ms ease;
+}
+
+.credit-pack-grid button:last-child {
+  border-right: 0;
+}
+
+.credit-pack-grid button:hover:not(:disabled),
+.credit-pack-grid button:focus-visible {
+  color: var(--night);
+  background: var(--signal);
+}
+
+.credit-pack-grid button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.credit-pack-grid span,
+.credit-pack-grid small,
+.credit-pack-grid em {
+  font-size: 8px;
+  font-style: normal;
+  line-height: 1.6;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.credit-pack-grid strong {
+  grid-column: 1 / -1;
+  color: var(--sulfur);
+  font-family: "Bodoni Moda", serif;
+  font-size: clamp(52px, 6vw, 80px);
+  font-weight: 400;
+  line-height: 1;
+}
+
+.credit-pack-grid small {
+  color: var(--signal-muted);
+}
+
+.credit-pack-grid em {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.credit-pack-grid button:hover:not(:disabled) strong,
+.credit-pack-grid button:focus-visible strong,
+.credit-pack-grid button:hover:not(:disabled) small,
+.credit-pack-grid button:focus-visible small {
+  color: var(--night);
+}
+
+.checkout-notice,
+.checkout-error,
+.credit-pack-footnote {
+  border-right: 1px solid var(--signal-faint);
+  border-bottom: 1px solid var(--signal-faint);
+  border-left: 1px solid var(--signal-faint);
+  padding: 14px 18px;
+}
+
+.checkout-notice {
+  color: var(--sulfur);
+}
+
+.checkout-error {
+  color: #ff8f70;
+}
+
 .ledger-section {
   margin: clamp(60px, 8vw, 110px) clamp(24px, 7vw, 105px) 0;
 }
@@ -3156,6 +3289,11 @@ textarea:disabled {
     height: 455px;
   }
 
+  /* Keep the artwork out of flow even though SignalImage's base class is relative. */
+  .signal-image.landing-machine {
+    position: absolute;
+  }
+
   .landing-machine > img {
     object-position: 73% center;
   }
@@ -3233,6 +3371,7 @@ textarea:disabled {
   }
 
   .landing-outcome-card {
+    min-width: 0;
     min-height: 340px;
     border-right: 1px solid var(--cobalt);
     border-bottom: 1px solid var(--cobalt);
@@ -3242,6 +3381,8 @@ textarea:disabled {
     min-height: auto;
     margin-top: 28px;
     font-size: 48px;
+    hyphens: auto;
+    overflow-wrap: anywhere;
   }
 
   .field-record-grid,
@@ -3514,6 +3655,29 @@ textarea:disabled {
     min-height: 220px;
     border-right: 0;
     border-bottom: 1px solid var(--signal-faint);
+  }
+
+  .credit-packs-section {
+    margin-right: 18px;
+    margin-left: 18px;
+  }
+
+  .credit-packs-section > header {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .credit-packs-section > header > span {
+    text-align: left;
+  }
+
+  .credit-pack-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .credit-pack-grid button {
+    min-height: 240px;
+    border-right: 0;
   }
 
   .ledger-section,

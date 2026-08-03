@@ -98,6 +98,54 @@ export async function acknowledgeAccountGrant(userId) {
   return row?.acknowledged === true;
 }
 
+export async function recordStripeCheckout({
+  checkoutSessionId,
+  userId,
+  packId,
+  amountCents,
+  currency,
+}) {
+  const sql = db();
+  await sql`
+    insert into public.lmiere_stripe_checkouts (
+      checkout_session_id, user_id, pack_id, amount_cents, currency, status
+    ) values (
+      ${checkoutSessionId}, ${userId}::uuid, ${packId}, ${amountCents}::integer, ${currency}, 'created'
+    )
+    on conflict (checkout_session_id) do update
+      set updated_at = now()
+      where public.lmiere_stripe_checkouts.status = 'created'
+  `;
+}
+
+export async function creditStripeCheckout({
+  eventId,
+  eventType,
+  checkoutSessionId,
+  paymentIntentId,
+  stripeCustomerId,
+  userId,
+  packId,
+  amountCents,
+  currency,
+}) {
+  const sql = db();
+  const [row] = await sql`
+    select public.lmiere_credit_stripe_checkout(
+      ${eventId},
+      ${eventType},
+      ${checkoutSessionId},
+      ${paymentIntentId},
+      ${stripeCustomerId},
+      ${userId}::uuid,
+      ${packId},
+      ${amountCents}::integer,
+      ${currency}
+    ) as result
+  `;
+  return row.result;
+}
+
 export async function reserveGeneration({ id, userId, outcome, model, prompt, chargeCents }) {
   const sql = db();
   const [row] = await sql`
@@ -210,8 +258,11 @@ export async function getDatabaseReadiness() {
       to_regclass('public.lmiere_wallets') is not null as wallets,
       to_regclass('public.lmiere_account_grants') is not null as account_grants,
       to_regclass('public.lmiere_email_events') is not null as email_events,
+      to_regclass('public.lmiere_stripe_checkouts') is not null as stripe_checkouts,
+      to_regclass('public.lmiere_stripe_events') is not null as stripe_events,
       to_regprocedure('public.lmiere_acknowledge_account_grant(uuid)') is not null as grant_acknowledgement,
-      to_regprocedure('public.lmiere_reserve_generation_v2(text,uuid,text,text,text,integer,integer,integer,integer,integer)') is not null as guarded_reservations
+      to_regprocedure('public.lmiere_reserve_generation_v2(text,uuid,text,text,text,integer,integer,integer,integer,integer)') is not null as guarded_reservations,
+      to_regprocedure('public.lmiere_credit_stripe_checkout(text,text,text,text,text,uuid,text,integer,text)') is not null as stripe_crediting
   `;
   const [users] = await sql`
     select

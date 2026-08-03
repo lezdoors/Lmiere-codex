@@ -8,6 +8,7 @@ import {
   CircleNotch,
   Coins,
   Cpu,
+  CreditCard,
   DownloadSimple,
   FileText,
   LockKey,
@@ -26,6 +27,7 @@ import {
   isAuthConfigured,
   isVerifiedSession,
 } from "./auth.js";
+import { isFullName, normalizeFullName } from "./account-validation.js";
 import { LanguageSwitch, localizeError, useLanguage } from "./i18n.jsx";
 
 const OUTCOMES = [
@@ -58,6 +60,12 @@ const OUTCOMES = [
   },
 ];
 
+const CREDIT_PACKS = [
+  { id: "signal-10", amountCents: 1000, label: "Signal 10", note: "125 fast images" },
+  { id: "signal-25", amountCents: 2500, label: "Signal 25", note: "Room to experiment" },
+  { id: "signal-50", amountCents: 5000, label: "Signal 50", note: "For longer motion runs" },
+];
+
 function outcomeById(id) {
   return OUTCOMES.find((candidate) => candidate.id === id) ?? OUTCOMES[0];
 }
@@ -86,6 +94,7 @@ function ledgerLabel(kind, t) {
     initial_credit: "Opening test credit",
     founder_gift: "Founder gift",
     credit: "Credit added",
+    purchase: "Credit purchase",
     reserve: "Run approved",
     settle: "Completed generation",
     release: "Charge released",
@@ -323,6 +332,12 @@ function AuthPanel({ session, account, onAuthenticated, onSignOut }) {
       return;
     }
 
+    const normalizedName = normalizeFullName(name);
+    if (mode === "sign-up" && !isFullName(normalizedName)) {
+      setError(t("Enter your first and last name."));
+      return;
+    }
+
     if (mode === "sign-up" && password.length < 8) {
       setError(t("Use at least 8 characters for your password."));
       return;
@@ -336,7 +351,7 @@ function AuthPanel({ session, account, onAuthenticated, onSignOut }) {
     setBusy(true);
     try {
       const response = mode === "sign-up"
-        ? await authClient.signUp.email({ name: name.trim(), email: email.trim(), password })
+        ? await authClient.signUp.email({ name: normalizedName, email: email.trim(), password })
         : await authClient.signIn.email({ email: email.trim(), password });
 
       if (response?.error) throw new Error(response.error.message ?? t("Authentication failed."));
@@ -545,14 +560,18 @@ function AuthPanel({ session, account, onAuthenticated, onSignOut }) {
       <form className="auth-form" onSubmit={submit}>
         {mode === "sign-up" && (
           <label>
-            <span>{t("Name")}</span>
+            <span>{t("Full name")}</span>
             <input
               type="text"
+              name="name"
               value={name}
               onChange={(event) => setName(event.target.value)}
               autoComplete="name"
+              autoCapitalize="words"
+              placeholder={t("First and last name")}
               required
             />
+            <small className="auth-hint">{t("Enter your first and last name.")}</small>
           </label>
         )}
         <label>
@@ -1304,10 +1323,51 @@ function ArchiveScreen({ session, account, runs, onNavigate, onOpenPanel }) {
   );
 }
 
-function AccountScreen({ session, account, runs, ledger, onNavigate, onOpenPanel, onSignOut }) {
+function AccountScreen({ session, account, runs, ledger, onNavigate, onOpenPanel, onSignOut, onAccountChanged }) {
   const { formatCents, formatDate, t } = useLanguage();
   const completeRuns = runs.filter((run) => run.status === "complete");
   const spentCents = completeRuns.reduce((sum, run) => sum + run.chargeCents, 0);
+  const [checkoutBusy, setCheckoutBusy] = useState("");
+  const [checkoutError, setCheckoutError] = useState("");
+  const [checkoutNotice, setCheckoutNotice] = useState("");
+
+  useEffect(() => {
+    const checkout = new URLSearchParams(window.location.search).get("checkout");
+    if (!checkout) return undefined;
+
+    window.history.replaceState({}, "", "/account");
+    if (checkout === "cancelled") {
+      setCheckoutNotice(t("Checkout cancelled. Your wallet was not changed."));
+      return undefined;
+    }
+    if (checkout !== "success") return undefined;
+
+    setCheckoutNotice(t("Payment received. Stripe is confirming the credit now."));
+    onAccountChanged();
+    const refreshTimers = [900, 2200, 4500].map((delay) => (
+      window.setTimeout(() => onAccountChanged(), delay)
+    ));
+    return () => refreshTimers.forEach((timer) => window.clearTimeout(timer));
+  }, [onAccountChanged, t]);
+
+  async function beginCheckout(packId) {
+    setCheckoutBusy(packId);
+    setCheckoutError("");
+    setCheckoutNotice("");
+    try {
+      const data = await apiRequest("/api/checkout", {
+        method: "POST",
+        body: JSON.stringify({ packId }),
+      });
+      window.location.assign(data.url);
+    } catch (error) {
+      setCheckoutError(localizeError(
+        error instanceof Error ? error.message : t("Secure checkout could not be opened."),
+        t,
+      ));
+      setCheckoutBusy("");
+    }
+  }
 
   return (
     <main className="account-screen network-page">
@@ -1332,6 +1392,33 @@ function AccountScreen({ session, account, runs, ledger, onNavigate, onOpenPanel
             <article><Wallet size={24} weight="light" /><span>{t("Available balance")}</span><strong>{formatCents(account?.availableCents)}</strong><small>{t("Ready for a new run")}</small></article>
             <article><ClockCounterClockwise size={24} weight="light" /><span>{t("Reserved")}</span><strong>{formatCents(account?.reservedCents)}</strong><small>{t("Held only while runs are active")}</small></article>
             <article><Coins size={24} weight="light" /><span>{t("Completed spend")}</span><strong>{formatCents(spentCents)}</strong><small>{completeRuns.length} {t(completeRuns.length === 1 ? "recovered generation" : "recovered generations")}</small></article>
+          </section>
+
+          <section className="credit-packs-section" aria-labelledby="credit-packs-title">
+            <header>
+              <div><p>// {t("Prepaid signal")}</p><h2 id="credit-packs-title">{t("Add generation credit")}</h2></div>
+              <span>{t("Stripe test mode")}<br />{t("No subscription. No shared balance.")}</span>
+            </header>
+            <div className="credit-pack-grid">
+              {CREDIT_PACKS.map((pack, index) => (
+                <button
+                  type="button"
+                  key={pack.id}
+                  disabled={Boolean(checkoutBusy)}
+                  onClick={() => beginCheckout(pack.id)}
+                  aria-label={t("Buy {amount} in generation credit", { amount: formatCents(pack.amountCents) })}
+                >
+                  <span>0{index + 1} / {pack.label}</span>
+                  <CreditCard size={22} weight="light" />
+                  <strong>{formatCents(pack.amountCents)}</strong>
+                  <small>{t(pack.note)}</small>
+                  <em>{checkoutBusy === pack.id ? t("Opening Stripe") : t("Choose credit")} <ArrowRight size={16} /></em>
+                </button>
+              ))}
+            </div>
+            {checkoutNotice && <p className="checkout-notice" role="status">{checkoutNotice}</p>}
+            {checkoutError && <p className="checkout-error" role="alert">{checkoutError}</p>}
+            <p className="credit-pack-footnote">{t("Credit is added only after Stripe sends a verified payment confirmation. Test credits have no cash value.")}</p>
           </section>
 
           <section className="ledger-section">
@@ -1735,7 +1822,7 @@ export function App() {
   } else if (route.name === "archive") {
     page = <ArchiveScreen session={session} account={account} runs={runs} onNavigate={navigate} onOpenPanel={openPanel} />;
   } else if (route.name === "account") {
-    page = <AccountScreen session={session} account={account} runs={runs} ledger={ledger} onNavigate={navigate} onOpenPanel={openPanel} onSignOut={signOut} />;
+    page = <AccountScreen session={session} account={account} runs={runs} ledger={ledger} onNavigate={navigate} onOpenPanel={openPanel} onSignOut={signOut} onAccountChanged={refreshAccount} />;
   } else if (route.name === "run") {
     page = <RunScreen id={route.id} session={session} account={account} runs={runs} onNavigate={navigate} onOpenPanel={openPanel} onRemix={remixRun} />;
   } else if (route.name === "privacy" || route.name === "terms") {
