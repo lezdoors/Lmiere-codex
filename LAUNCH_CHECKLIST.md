@@ -6,7 +6,7 @@
 - Keep per-user and global daily spend limits non-zero, with no more than two active generations.
 - Add `BLOB_READ_WRITE_TOKEN` so completed Fal media is copied into durable Lmiere storage instead of relying on provider URLs.
 - Verify `updates.lmiere.com` in Resend, then add `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET`, `LMIERE_EMAIL_FROM`, and `LMIERE_EMAIL_REPLY_TO` in Vercel.
-- Configure Neon Auth’s custom email provider and webhook after Resend is ready; confirm both founder emails from the real domain.
+- Set Neon Auth’s Application Name to `Lmiere`. After the production webhook endpoint is deployed, enable `send.otp` and `send.magic_link` delivery to `https://www.lmiere.com/api/webhooks/neon-auth`; confirm verification and reset emails for both founders come from the Lmiere domain and contain no Neon or internal project branding.
 - Add a Vercel WAF rate-limit rule for generation endpoints before inviting anyone outside the founders.
 - Run one image and one video end to end: reservation, Fal queue, result storage, settlement, archive recovery, email delivery, and webhook receipt.
 

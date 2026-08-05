@@ -30,7 +30,7 @@ function firstName(name = "") {
   return name.trim().split(/\s+/)[0] || "there";
 }
 
-function emailShell({ eyebrow, heading, copy, actionLabel, actionUrl, footer, language = "en" }) {
+function emailShell({ eyebrow, heading, copy, actionLabel, actionUrl, code, footer, language = "en" }) {
   return `<!doctype html>
 <html lang="${language}">
   <body style="margin:0;background:#f2efe5;color:#111826;font-family:Arial,Helvetica,sans-serif;">
@@ -48,7 +48,8 @@ function emailShell({ eyebrow, heading, copy, actionLabel, actionUrl, footer, la
               <p style="margin:0 0 22px;color:#3446ff;font-family:Courier New,monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;">${escapeHtml(eyebrow)}</p>
               <h1 style="margin:0 0 22px;font-family:Georgia,Times New Roman,serif;font-size:42px;font-weight:400;line-height:1.04;">${escapeHtml(heading)}</h1>
               <p style="margin:0 0 30px;color:#4a5260;font-size:16px;line-height:1.7;">${escapeHtml(copy)}</p>
-              <a href="${escapeHtml(actionUrl)}" style="display:inline-block;border:1px solid #111826;padding:15px 21px;color:#fff;text-decoration:none;background:#111826;font-family:Courier New,monospace;font-size:12px;letter-spacing:.08em;text-transform:uppercase;">${escapeHtml(actionLabel)} →</a>
+              ${code ? `<div style="margin:0 0 30px;border:1px solid #111826;background:#f2efe5;padding:20px 18px;text-align:center;color:#111826;font-family:Courier New,monospace;font-size:30px;font-weight:700;letter-spacing:.22em;">${escapeHtml(code)}</div>` : ""}
+              ${actionLabel && actionUrl ? `<a href="${escapeHtml(actionUrl)}" style="display:inline-block;border:1px solid #111826;padding:15px 21px;color:#fff;text-decoration:none;background:#111826;font-family:Courier New,monospace;font-size:12px;letter-spacing:.08em;text-transform:uppercase;">${escapeHtml(actionLabel)} →</a>` : ""}
             </td>
           </tr>
           <tr>
@@ -61,6 +62,102 @@ function emailShell({ eyebrow, heading, copy, actionLabel, actionUrl, footer, la
     </table>
   </body>
 </html>`;
+}
+
+function expiresInMinutes(expiresAt, fallback) {
+  const timestamp = Date.parse(expiresAt ?? "");
+  if (!Number.isFinite(timestamp)) return fallback;
+  return Math.max(1, Math.round((timestamp - Date.now()) / 60000));
+}
+
+export function passwordResetEmail({ name, actionUrl, expiresAt, language = "en" }) {
+  const greeting = firstName(name);
+  const minutes = expiresInMinutes(expiresAt, 15);
+  const isFrench = language === "fr";
+  if (isFrench) {
+    return {
+      subject: "Réinitialisez votre mot de passe Lmiere",
+      text: `Bonjour ${greeting}, utilisez ce lien sécurisé pour choisir un nouveau mot de passe Lmiere : ${actionUrl}\n\nCe lien expire dans ${minutes} minutes. Si vous n’avez pas demandé cette modification, ignorez cet e-mail.`,
+      html: emailShell({
+        language,
+        eyebrow: "Récupération du compte",
+        heading: "Choisissez une nouvelle clé.",
+        copy: `Bonjour ${greeting}. Une demande de réinitialisation a été reçue pour votre compte Lmiere.`,
+        actionLabel: "Réinitialiser le mot de passe",
+        actionUrl,
+        footer: `Ce lien sécurisé expire dans ${minutes} minutes. Si vous n’êtes pas à l’origine de cette demande, aucune action n’est nécessaire.`,
+      }),
+    };
+  }
+  return {
+    subject: "Reset your Lmiere password",
+    text: `Hello ${greeting}, use this secure Lmiere link to choose a new password: ${actionUrl}\n\nThis link expires in ${minutes} minutes. If you did not request this change, ignore this email.`,
+    html: emailShell({
+      eyebrow: "Account recovery",
+      heading: "Choose a new key.",
+      copy: `Hello ${greeting}. We received a request to reset the password for your Lmiere account.`,
+      actionLabel: "Reset password",
+      actionUrl,
+      footer: `This secure link expires in ${minutes} minutes. If you did not make this request, no action is needed.`,
+    }),
+  };
+}
+
+export function verificationCodeEmail({ name, code, expiresAt, purpose = "email-verification", language = "en" }) {
+  const greeting = firstName(name);
+  const minutes = expiresInMinutes(expiresAt, 10);
+  const isPasswordReset = purpose === "forget-password";
+  const isFrench = language === "fr";
+  if (isFrench) {
+    const purposeCopy = isPasswordReset
+      ? "pour réinitialiser votre mot de passe"
+      : "pour confirmer votre adresse e-mail";
+    return {
+      subject: isPasswordReset ? "Votre code de récupération Lmiere" : "Votre code de vérification Lmiere",
+      text: `Bonjour ${greeting}, votre code Lmiere ${purposeCopy} est ${code}. Il expire dans ${minutes} minutes. Ne partagez jamais ce code.`,
+      html: emailShell({
+        language,
+        eyebrow: isPasswordReset ? "Récupération du compte" : "Vérification du compte",
+        heading: isPasswordReset ? "Votre clé temporaire." : "Confirmez votre signal.",
+        copy: `Bonjour ${greeting}. Utilisez ce code ${purposeCopy}.`,
+        code,
+        footer: `Ce code expire dans ${minutes} minutes. L’équipe Lmiere ne vous demandera jamais de le communiquer.`,
+      }),
+    };
+  }
+  const purposeCopy = isPasswordReset ? "reset your password" : "confirm your email address";
+  return {
+    subject: isPasswordReset ? "Your Lmiere recovery code" : "Your Lmiere verification code",
+    text: `Hello ${greeting}, your Lmiere code to ${purposeCopy} is ${code}. It expires in ${minutes} minutes. Never share this code.`,
+    html: emailShell({
+      eyebrow: isPasswordReset ? "Account recovery" : "Account verification",
+      heading: isPasswordReset ? "Your temporary key." : "Confirm your signal.",
+      copy: `Hello ${greeting}. Use this code to ${purposeCopy}.`,
+      code,
+      footer: `This code expires in ${minutes} minutes. The Lmiere team will never ask you to share it.`,
+    }),
+  };
+}
+
+export function secureLinkEmail({ name, actionUrl, linkType, expiresAt, language = "en" }) {
+  const greeting = firstName(name);
+  const minutes = expiresInMinutes(expiresAt, 15);
+  const verifyEmail = linkType === "email-verification";
+  const action = verifyEmail ? "Verify email" : "Sign in to Lmiere";
+  const purpose = verifyEmail ? "confirm your email address" : "sign in securely";
+  return {
+    subject: verifyEmail ? "Confirm your Lmiere email" : "Your secure Lmiere sign-in link",
+    text: `Hello ${greeting}. Open the HTML version of this message and select “${action}” to ${purpose}. The secure link expires in ${minutes} minutes.`,
+    html: emailShell({
+      language,
+      eyebrow: verifyEmail ? "Account verification" : "Secure sign in",
+      heading: verifyEmail ? "Confirm your signal." : "Return to the field.",
+      copy: `Hello ${greeting}. Use the secure action below to ${purpose}.`,
+      actionLabel: action,
+      actionUrl,
+      footer: `This secure link expires in ${minutes} minutes. If you did not request it, no action is needed.`,
+    }),
+  };
 }
 
 function formatCredit(cents, language = "en") {
@@ -193,4 +290,31 @@ export async function sendVerifiedAccountEmails(user, { gift = null, language = 
     }));
   }
   return { configured: true, results };
+}
+
+export async function sendAuthDeliveryEmail({ eventId, eventType, to, content }) {
+  if (!isTransactionalEmailConfigured()) {
+    throw new Error("Transactional email is not configured.");
+  }
+  if (!eventId || !to) throw new Error("Auth email delivery metadata is incomplete.");
+
+  const { data, error } = await getResendClient().emails.send({
+    from: process.env.LMIERE_EMAIL_FROM,
+    to: [to],
+    replyTo: process.env.LMIERE_EMAIL_REPLY_TO || "support@lmiere.com",
+    subject: content.subject,
+    text: content.text,
+    html: content.html,
+    tags: [
+      { name: "category", value: "auth_delivery" },
+      { name: "auth_event", value: String(eventType).replaceAll(".", "_") },
+    ],
+  }, {
+    idempotencyKey: `lmiere-neon-auth/${eventId}`,
+  });
+
+  if (error || !data?.id) {
+    throw new Error(error?.message || "Resend returned no email identifier.");
+  }
+  return { sent: true, providerId: data.id };
 }

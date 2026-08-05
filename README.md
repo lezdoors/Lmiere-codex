@@ -51,8 +51,9 @@ npm run build
 3. Add `lmiere.com` and `www.lmiere.com` as trusted origins. Disable localhost access on the production auth branch.
 4. Configure MochaHost MX, SPF, and DKIM records at the active DNS provider. Publish a DMARC policy after both senders pass authentication.
 5. Verify `updates.lmiere.com` in Resend, disable open/click tracking for auth email, and add the Resend environment variables.
-6. Register `https://lmiere.com/api/webhooks/resend` for delivered, bounced, complained, failed, and suppressed email events.
-7. Set the beta and administrator allowlists before enabling paid generation.
+6. In Neon Auth, set the Application Name to `Lmiere`. Register `https://www.lmiere.com/api/webhooks/neon-auth` for `send.otp` and `send.magic_link` only after that endpoint is deployed and healthy. Neon then skips its shared email template and Lmiere sends the signed event through Resend.
+7. Register `https://www.lmiere.com/api/webhooks/resend` for delivered, bounced, complained, failed, and suppressed email events.
+8. Set the beta and administrator allowlists before enabling paid generation.
 
 ## Stripe test checkout
 
