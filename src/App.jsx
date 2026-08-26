@@ -7,15 +7,22 @@ import {
   ClockCounterClockwise,
   CircleNotch,
   Coins,
-  Cpu,
   CreditCard,
   DownloadSimple,
   FileText,
+  FilmStrip,
+  ImageSquare,
+  LinkSimple,
   LockKey,
+  MagicWand,
+  Plus,
   Receipt,
   ShieldCheck,
   SignOut,
+  SlidersHorizontal,
   Sparkle,
+  Trash,
+  UploadSimple,
   UserCircle,
   Wallet,
   X,
@@ -30,6 +37,7 @@ import {
 import { isFullName, normalizeFullName } from "./account-validation.js";
 import AsciiSignal from "./AsciiSignal.jsx";
 import LatentField from "./LatentField.jsx";
+import { BorderBeam } from "./components/ui/border-beam.jsx";
 import { LanguageSwitch, localizeError, useLanguage } from "./i18n.jsx";
 
 const OUTCOMES = [
@@ -65,20 +73,62 @@ const OUTCOMES = [
   },
 ];
 
-const STARTER_PROMPTS = [
+const STUDIO_STYLES = [
+  { id: "natural", label: "Natural" },
+  { id: "editorial", label: "Editorial" },
+  { id: "product", label: "Product" },
+  { id: "cinematic", label: "Cinematic" },
+  { id: "analog", label: "Analog" },
+  { id: "surreal", label: "Surreal" },
+];
+
+const STUDIO_RATIOS = ["1:1", "4:3", "16:9", "9:16"];
+
+const STUDIO_RECIPES = [
   {
-    label: "Product study",
-    prompt: "A translucent perfume bottle on brushed aluminum, hard morning light, precise editorial photography",
+    label: "Product reshoot",
+    note: "Reference → campaign image",
+    outcome: "quality",
+    style: "product",
+    ratio: "4:3",
+    prompt: "Re-stage this product with premium material accuracy, controlled highlights, and a quiet campaign composition.",
+    asksForReference: true,
   },
   {
-    label: "Motion study",
-    prompt: "A silver coat moving through rain at night, slow tracking shot, reflections breathing across the fabric",
+    label: "Animate a still",
+    note: "First frame → motion",
+    outcome: "cinematic",
+    style: "cinematic",
+    ratio: "16:9",
+    prompt: "Bring this frame to life with subtle natural movement, a slow camera push, and physically coherent light.",
+    asksForReference: true,
   },
   {
-    label: "Impossible place",
-    prompt: "An impossible observatory carved into red stone, quiet figures for scale, photographed at blue hour",
+    label: "Editorial portrait",
+    note: "Words → finished plate",
+    outcome: "quality",
+    style: "editorial",
+    ratio: "4:3",
+    prompt: "An arresting editorial portrait with sculptural light, precise styling, and an unexpected but restrained set design.",
+  },
+  {
+    label: "Social vertical",
+    note: "Idea → 9:16 image",
+    outcome: "fast",
+    style: "cinematic",
+    ratio: "9:16",
+    prompt: "A bold vertical campaign image with one immediate focal point, clean negative space, and tactile cinematic color.",
   },
 ];
+
+function readReferenceFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => resolve(String(reader.result || "")), { once: true });
+    reader.addEventListener("error", () => reject(new Error("Could not read that reference image.")), { once: true });
+    reader.readAsDataURL(file);
+  });
+}
 
 const LANDING_CHAPTERS = [
   { id: "apparatus", numeral: "I", label: "Apparatus" },
@@ -1118,17 +1168,38 @@ function StudioScreen({
   initialDraft,
 }) {
   const { formatCents, formatPrice, t } = useLanguage();
-  const [selectedId, setSelectedId] = useState(initialDraft?.outcome ?? "cinematic");
+  const [selectedId, setSelectedId] = useState(initialDraft?.outcome ?? "fast");
   const [prompt, setPrompt] = useState(initialDraft?.prompt ?? "");
+  const [styleId, setStyleId] = useState("natural");
+  const [aspectRatio, setAspectRatio] = useState(initialDraft?.outcome === "cinematic" ? "16:9" : "4:3");
+  const [reference, setReference] = useState(null);
+  const [referenceUrlDraft, setReferenceUrlDraft] = useState("");
+  const [showReferenceUrl, setShowReferenceUrl] = useState(false);
+  const [referenceStrength, setReferenceStrength] = useState(0.78);
+  const [dragActive, setDragActive] = useState(false);
+  const [beamActive, setBeamActive] = useState(false);
   const [phase, setPhase] = useState("idle");
   const [progress, setProgress] = useState(0);
   const [generation, setGeneration] = useState(null);
   const [error, setError] = useState("");
+  const fileInputRef = useRef(null);
+  const promptRef = useRef(null);
+  const beamTimerRef = useRef(null);
 
   const outcome = useMemo(() => outcomeById(selectedId), [selectedId]);
-  const isRunning = phase === "submitting" || phase === "generating";
+  const creationMode = selectedId === "cinematic" ? "video" : "image";
+  const isRunning = ["uploading", "submitting", "generating"].includes(phase);
   const availableCents = account?.availableCents ?? 0;
   const needsCredit = Boolean(session?.user) && availableCents < outcome.priceCents;
+  const recentRuns = runs.slice(0, 6);
+
+  const pulseBeam = useCallback(() => {
+    window.clearTimeout(beamTimerRef.current);
+    setBeamActive(true);
+    beamTimerRef.current = window.setTimeout(() => setBeamActive(false), 2800);
+  }, []);
+
+  useEffect(() => () => window.clearTimeout(beamTimerRef.current), []);
 
   useEffect(() => {
     if (!session?.user || phase !== "idle" || generation) return;
@@ -1210,12 +1281,30 @@ function StudioScreen({
     setError("");
     setGeneration(null);
     setProgress(2);
-    setPhase("submitting");
 
     try {
+      let referenceUrl = reference?.url || "";
+      if (reference?.dataUrl && !referenceUrl) {
+        setPhase("uploading");
+        const uploaded = await apiRequest("/api/references", {
+          method: "POST",
+          body: JSON.stringify({ dataUrl: reference.dataUrl, name: reference.name }),
+        });
+        referenceUrl = uploaded.reference.url;
+        setReference((current) => current ? { ...current, url: referenceUrl, status: "uploaded" } : current);
+      }
+
+      setPhase("submitting");
       const data = await apiRequest("/api/generations", {
         method: "POST",
-        body: JSON.stringify({ prompt: prompt.trim(), outcome: selectedId }),
+        body: JSON.stringify({
+          prompt: prompt.trim(),
+          outcome: selectedId,
+          referenceUrl,
+          style: styleId,
+          aspectRatio,
+          referenceStrength,
+        }),
       });
       setGeneration(data.generation);
       setProgress(data.generation?.progress ?? 5);
@@ -1236,6 +1325,120 @@ function StudioScreen({
     setError("");
   }
 
+  function chooseMode(mode) {
+    setSelectedId(mode === "video" ? "cinematic" : reference ? "quality" : "fast");
+    setAspectRatio(mode === "video" ? "16:9" : "4:3");
+    setError("");
+    newRun();
+  }
+
+  async function acceptReferenceFile(file) {
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setError(t("Use a JPEG, PNG, or WebP reference image."));
+      return;
+    }
+    if (file.size > 2_750_000) {
+      setError(t("Keep reference images below 2.75 MB."));
+      return;
+    }
+
+    try {
+      const dataUrl = await readReferenceFile(file);
+      setReference({
+        dataUrl,
+        previewUrl: dataUrl,
+        name: file.name,
+        contentType: file.type,
+        status: "ready",
+      });
+      if (creationMode === "image") setSelectedId("quality");
+      setError("");
+      setShowReferenceUrl(false);
+      pulseBeam();
+    } catch (fileError) {
+      setError(localizeError(fileError instanceof Error ? fileError.message : t("Could not read that reference image."), t));
+    }
+  }
+
+  function attachReferenceUrl() {
+    try {
+      const parsed = new URL(referenceUrlDraft.trim());
+      if (parsed.protocol !== "https:") throw new Error();
+      setReference({
+        url: parsed.toString(),
+        previewUrl: parsed.toString(),
+        name: parsed.pathname.split("/").filter(Boolean).at(-1) || t("Linked reference"),
+        status: "linked",
+      });
+      if (creationMode === "image") setSelectedId("quality");
+      setReferenceUrlDraft("");
+      setShowReferenceUrl(false);
+      setError("");
+      pulseBeam();
+    } catch {
+      setError(t("Paste a public HTTPS image link."));
+    }
+  }
+
+  function clearReference() {
+    setReference(null);
+    setError("");
+  }
+
+  function applyRecipe(recipe) {
+    setPrompt(t(recipe.prompt));
+    setSelectedId(recipe.outcome);
+    setStyleId(recipe.style);
+    setAspectRatio(recipe.ratio);
+    setError("");
+    newRun();
+    if (recipe.asksForReference && !reference) fileInputRef.current?.click();
+    else promptRef.current?.focus();
+    pulseBeam();
+  }
+
+  function reuseRun(run) {
+    setPrompt(run.prompt || "");
+    setSelectedId(run.outcome || "fast");
+    setAspectRatio(run.outcome === "cinematic" ? "16:9" : "4:3");
+    newRun();
+    promptRef.current?.focus();
+    pulseBeam();
+  }
+
+  function useResultAsReference(run, mode) {
+    if (!run.resultUrl || run.resultContentType?.startsWith("video/")) return;
+    setReference({
+      url: run.resultUrl,
+      previewUrl: run.resultUrl,
+      name: `Lmiere ${run.id}`,
+      contentType: run.resultContentType || "image/jpeg",
+      status: "archive",
+    });
+    setSelectedId(mode === "video" ? "cinematic" : "quality");
+    setAspectRatio(mode === "video" ? "16:9" : "4:3");
+    setError("");
+    newRun();
+    pulseBeam();
+  }
+
+  function handleComposerPaste(event) {
+    const file = [...(event.clipboardData?.items || [])]
+      .find((item) => item.kind === "file" && item.type.startsWith("image/"))
+      ?.getAsFile();
+    if (!file) return;
+    event.preventDefault();
+    acceptReferenceFile(file);
+  }
+
+  function handlePromptKeyDown(event) {
+    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+      event.preventDefault();
+      if (!isRunning) beginRun();
+    }
+  }
+
   const result = phase === "complete" ? generation : null;
 
   return (
@@ -1246,7 +1449,7 @@ function StudioScreen({
           <span><strong>Lmiere</strong><small>{t("Studio / Daily image machine")}</small></span>
         </button>
 
-        <p className="studio-header-note">{t("One prompt. One outcome. One exact price.")}</p>
+        <p className="studio-header-note">{t("Reference. Direct. Generate. Keep every result.")}</p>
 
         <nav className="studio-nav" aria-label="Studio navigation">
           <button type="button" onClick={() => onNavigate("/archive")}>{t("Archive")} / {String(runs.length).padStart(2, "0")}</button>
@@ -1269,95 +1472,221 @@ function StudioScreen({
 
       <section className="studio-workspace" aria-label={t("Generation workspace")}>
         <div className="studio-controls">
-          <section className="studio-prompt-zone" aria-labelledby="studio-prompt-heading">
-            <div className="studio-control-heading"><span>{t("Describe")}</span><strong>01</strong></div>
-            <h1 id="studio-prompt-heading">{t("What do you want to make?")}</h1>
-            <label className="studio-label" htmlFor="studio-prompt">{t("Prompt")}</label>
-            <textarea
-              id="studio-prompt"
-              rows={5}
-              value={prompt}
-              placeholder={t("A memory of rain inside a glass house")}
-              onChange={(event) => {
-                setPrompt(event.target.value);
-                setError("");
-                if (phase === "complete" || phase === "failed") newRun();
+          <header className="studio-desk-intro">
+            <h1 id="studio-prompt-heading">{t("Create an image or video.")}</h1>
+            <p>{t("Begin with words, add an image when it matters, and approve the exact price before anything runs.")}</p>
+          </header>
+
+          <div className="studio-mode-tabs" role="tablist" aria-label={t("Creation mode")}>
+            <button type="button" role="tab" aria-selected={creationMode === "image"} onClick={() => chooseMode("image")} disabled={isRunning}>
+              <ImageSquare size={17} /> {t("Image")}
+            </button>
+            <button type="button" role="tab" aria-selected={creationMode === "video"} onClick={() => chooseMode("video")} disabled={isRunning}>
+              <FilmStrip size={17} /> {t("Video")}
+            </button>
+          </div>
+
+          <BorderBeam
+            className="studio-composer-beam"
+            size="md"
+            colorVariant="ocean"
+            theme="light"
+            staticColors
+            strength={0.48}
+            duration={2.6}
+            borderRadius={0}
+            active={beamActive || dragActive || ["uploading", "submitting"].includes(phase)}
+          >
+            <section
+              className={`studio-composer ${dragActive ? "is-dragging" : ""}`}
+              aria-labelledby="studio-prompt-heading"
+              onFocusCapture={pulseBeam}
+              onPaste={handleComposerPaste}
+              onDragEnter={(event) => { event.preventDefault(); setDragActive(true); pulseBeam(); }}
+              onDragOver={(event) => { event.preventDefault(); setDragActive(true); }}
+              onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setDragActive(false); }}
+              onDrop={(event) => {
+                event.preventDefault();
+                setDragActive(false);
+                acceptReferenceFile(event.dataTransfer.files?.[0]);
               }}
-              disabled={isRunning}
-            />
-            <small>{t("Start with one clear sentence. Add subject, mood, material, camera, or motion when it matters.")}</small>
-            <div className="studio-prompt-ideas" aria-label={t("Prompt starting points")}>
-              <span>{t("Start from")}</span>
-              {STARTER_PROMPTS.map((idea) => (
-                <button
-                  key={idea.label}
-                  type="button"
-                  onClick={() => {
-                    setPrompt(t(idea.prompt));
-                    newRun();
+            >
+              <div className="studio-reference-head">
+                <div>
+                  <span>{t("Reference")}</span>
+                  <small>{creationMode === "video" ? t("Optional first frame") : t("Optional visual source")}</small>
+                </div>
+                <div className="studio-reference-actions">
+                  <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isRunning}>
+                    <UploadSimple size={15} /> {reference ? t("Replace") : t("Add image")}
+                  </button>
+                  <button type="button" onClick={() => setShowReferenceUrl((value) => !value)} disabled={isRunning} aria-expanded={showReferenceUrl}>
+                    <LinkSimple size={15} /> {t("Image link")}
+                  </button>
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  aria-label={t("Choose reference image")}
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={(event) => {
+                    acceptReferenceFile(event.target.files?.[0]);
+                    event.target.value = "";
                   }}
                   disabled={isRunning}
-                >
-                  {t(idea.label)} <ArrowUpRight size={12} />
+                />
+              </div>
+
+              {showReferenceUrl && (
+                <div className="studio-reference-url">
+                  <input
+                    type="url"
+                    aria-label={t("Reference image URL")}
+                    value={referenceUrlDraft}
+                    placeholder="https://…/reference.jpg"
+                    onChange={(event) => setReferenceUrlDraft(event.target.value)}
+                    onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); attachReferenceUrl(); } }}
+                  />
+                  <button type="button" onClick={attachReferenceUrl}>{t("Attach")}</button>
+                </div>
+              )}
+
+              {reference ? (
+                <article className="studio-reference-card">
+                  <img src={reference.previewUrl} alt={t("Selected generation reference")} />
+                  <div>
+                    <span>{creationMode === "video" ? t("First frame") : t("Visual reference")}</span>
+                    <strong>{reference.name}</strong>
+                    <small>{reference.status === "uploaded" ? t("Uploaded to the generation route") : t("Ready when you generate")}</small>
+                  </div>
+                  <button type="button" onClick={clearReference} disabled={isRunning} aria-label={t("Remove reference")}><Trash size={16} /></button>
+                </article>
+              ) : (
+                <button className="studio-reference-empty" type="button" onClick={() => fileInputRef.current?.click()} disabled={isRunning}>
+                  <Plus size={19} />
+                  <span><strong>{t("Drop, paste, or choose an image")}</strong><small>{t("JPEG, PNG, or WebP · up to 2.75 MB")}</small></span>
+                </button>
+              )}
+
+              <label className="studio-label" htmlFor="studio-prompt">{creationMode === "video" ? t("Describe the motion") : t("Describe the image")}</label>
+              <textarea
+                ref={promptRef}
+                id="studio-prompt"
+                rows={5}
+                value={prompt}
+                placeholder={creationMode === "video"
+                  ? t("Describe what moves, how the camera behaves, and how the light changes…")
+                  : t("Describe the subject, setting, light, material, and feeling…")}
+                onChange={(event) => {
+                  setPrompt(event.target.value);
+                  setError("");
+                  if (phase === "complete" || phase === "failed") newRun();
+                }}
+                onKeyDown={handlePromptKeyDown}
+                disabled={isRunning}
+              />
+              <div className="studio-composer-help">
+                <span>{t("Paste an image anywhere in this box")}</span>
+                <span>{t("⌘ Enter to generate")}</span>
+              </div>
+            </section>
+          </BorderBeam>
+
+          <section className="studio-look-settings" aria-label={t("Visual direction")}>
+            <div className="studio-setting-heading"><span>{t("Visual direction")}</span><MagicWand size={15} /></div>
+            <div className="studio-style-chips">
+              {STUDIO_STYLES.map((style) => (
+                <button key={style.id} type="button" aria-pressed={styleId === style.id} onClick={() => setStyleId(style.id)} disabled={isRunning}>
+                  {t(style.label)}
                 </button>
               ))}
             </div>
-            {error && <p className="studio-error" role="alert">{error}</p>}
           </section>
 
-          <fieldset className="studio-outcomes" disabled={isRunning}>
-            <legend className="studio-control-heading"><span>{t("Choose outcome")}</span><strong>02</strong></legend>
-            {OUTCOMES.map((candidate, index) => (
-              <label className={`studio-outcome ${selectedId === candidate.id ? "is-selected" : ""}`} key={candidate.id}>
+          <section className="studio-route-settings" aria-label={t("Generation settings")}>
+            <div className="studio-setting-heading"><span>{t("Output settings")}</span><SlidersHorizontal size={15} /></div>
+            <div className="studio-settings-grid">
+              <fieldset>
+                <legend>{t("Route")}</legend>
+                <div className="studio-segmented">
+                  {(creationMode === "video" ? OUTCOMES.filter((candidate) => candidate.id === "cinematic") : OUTCOMES.filter((candidate) => candidate.id !== "cinematic")).map((candidate) => (
+                    <label key={candidate.id} className={selectedId === candidate.id ? "is-selected" : ""}>
+                      <input
+                        type="radio"
+                        name="studio-outcome"
+                        value={candidate.id}
+                        checked={selectedId === candidate.id}
+                        disabled={isRunning || (Boolean(reference) && candidate.id === "fast")}
+                        onChange={() => { setSelectedId(candidate.id); setError(""); newRun(); }}
+                      />
+                      <span>{candidate.id === "fast" ? t("Draft") : candidate.id === "quality" ? t("Studio") : t("Cinematic")}</span>
+                      <small>{formatPrice(candidate.price)} · {candidate.eta}</small>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+
+              <fieldset>
+                <legend>{reference && creationMode === "image" ? t("Frame") : t("Aspect ratio")}</legend>
+                {reference && creationMode === "image" ? (
+                  <div className="studio-source-ratio"><ImageSquare size={15} /> {t("Match reference")}</div>
+                ) : (
+                  <div className="studio-ratio-chips">
+                    {STUDIO_RATIOS.map((ratio) => (
+                      <button key={ratio} type="button" aria-pressed={aspectRatio === ratio} onClick={() => setAspectRatio(ratio)} disabled={isRunning}>{ratio}</button>
+                    ))}
+                  </div>
+                )}
+              </fieldset>
+            </div>
+
+            {reference && creationMode === "image" && (
+              <label className="studio-strength-control">
+                <span>{t("Change from reference")} <output>{Math.round(referenceStrength * 100)}%</output></span>
                 <input
-                  type="radio"
-                  name="studio-outcome"
-                  value={candidate.id}
-                  checked={selectedId === candidate.id}
-                  onChange={() => {
-                    setSelectedId(candidate.id);
-                    newRun();
-                  }}
+                  type="range"
+                  min="55"
+                  max="95"
+                  step="1"
+                  value={Math.round(referenceStrength * 100)}
+                  onChange={(event) => setReferenceStrength(Number(event.target.value) / 100)}
+                  disabled={isRunning}
                 />
-                <span className="studio-outcome-index">0{index + 1}</span>
-                <span className="studio-outcome-copy">
-                  <strong>{t(candidate.studioLabel)}</strong>
-                  <small>{t(candidate.description)}</small>
-                </span>
-                <span className="studio-outcome-meta">
-                  <small>{candidate.signal} / {candidate.eta}</small>
-                  <strong>{formatPrice(candidate.price)}</strong>
-                  <i aria-hidden="true">{selectedId === candidate.id && <Check size={12} weight="bold" />}</i>
-                </span>
+                <small><span>{t("Keep close")}</span><span>{t("Reimagine")}</span></small>
               </label>
-            ))}
-            <p className="studio-engine-note"><Cpu size={14} /> {t("Lmiere chooses the best engine behind the scenes.")}</p>
-          </fieldset>
+            )}
+          </section>
+
+          {error && <p className="studio-error" role="alert">{error}</p>}
 
           <div className="studio-quote">
-            <div className="studio-control-heading"><span>{t("Approve")}</span><strong>03</strong></div>
-            <div className="studio-price-line"><span>{t("Exact cost")}</span><output>{formatPrice(outcome.price)}</output></div>
-            <p className={`studio-wallet-note ${needsCredit ? "is-low" : ""}`}>
-              <Wallet size={14} weight="light" />
-              {session ? t("{amount} available in your private wallet", { amount: formatCents(availableCents) }) : t("Sign in to connect your private wallet")}
-            </p>
+            <div className="studio-quote-copy">
+              <span>{t("Exact cost")}</span>
+              <strong>{formatPrice(outcome.price)}</strong>
+              <small>{session ? t("{amount} available", { amount: formatCents(availableCents) }) : t("Sign in to connect your wallet")}</small>
+            </div>
             <button
               className="studio-run-button"
               type="button"
               onClick={needsCredit && phase === "idle" ? () => onNavigate("/account") : phase === "complete" || phase === "failed" ? newRun : beginRun}
               disabled={isRunning}
             >
-              {isRunning ? (
+              {phase === "uploading" ? (
+                <><CircleNotch className="spin" size={19} /> {t("Uploading reference")}</>
+              ) : ["submitting", "generating"].includes(phase) ? (
                 <><CircleNotch className="spin" size={19} /> {t("Running")} {progress}%</>
               ) : phase === "complete" || phase === "failed" ? (
-                <>{t("New run")} <ArrowRight size={20} /></>
+                <>{t("New creation")} <ArrowRight size={20} /></>
               ) : needsCredit ? (
-                <>{t("Add credit")} <ArrowRight size={20} /></>
+                <>{t("Add credit")}</>
               ) : (
-                <>{t("Begin run")} <ArrowRight size={20} /></>
+                <>{t("Generate for {amount}", { amount: formatPrice(outcome.price) })} <ArrowRight size={20} /></>
               )}
             </button>
-            <small>{t("Charged only when the run completes. Failed runs return the reservation.")}</small>
+            <p className={`studio-wallet-note ${needsCredit ? "is-low" : ""}`}>
+              <Wallet size={14} weight="light" />
+              {t("Charged only on completion. Failed runs release the reservation.")}
+            </p>
           </div>
         </div>
 
@@ -1387,6 +1716,13 @@ function StudioScreen({
             {phase === "complete" && (
               <span className="studio-output-provenance"><Sparkle size={11} weight="fill" /> {t("AI-generated media")}</span>
             )}
+            {phase === "idle" && !result && (
+              <div className="studio-output-empty-note">
+                <span>{creationMode === "video" ? t("Motion field") : t("Image field")}</span>
+                <strong>{t("Your result appears here.")}</strong>
+                <small>{reference ? t("Reference connected") : t("Words or reference accepted")}</small>
+              </div>
+            )}
           </div>
           <div className="studio-progress-row">
             <span>{t(phase === "complete" ? "Stored in archive" : isRunning ? "Generating" : "Awaiting run")}</span>
@@ -1401,6 +1737,61 @@ function StudioScreen({
             </button>
           )}
         </figure>
+      </section>
+
+      <section className="studio-lower-deck">
+        <div className="studio-recipes">
+          <header>
+            <strong>{t("Useful recipes")}</strong>
+            <small>{t("A recipe fills the right route and settings. You stay in control.")}</small>
+          </header>
+          <div className="studio-recipe-grid">
+            {STUDIO_RECIPES.map((recipe) => (
+              <button type="button" key={recipe.label} onClick={() => applyRecipe(recipe)} disabled={isRunning}>
+                <strong>{t(recipe.label)}</strong>
+                <small>{t(recipe.note)}</small>
+                <ArrowUpRight size={16} />
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="studio-recent">
+          <header>
+            <strong>{t("Recent work")}</strong>
+            <button type="button" onClick={() => onNavigate("/archive")}>{t("Open all {count}", { count: runs.length })} <ArrowRight size={15} /></button>
+          </header>
+          {recentRuns.length ? (
+            <div className="studio-recent-grid">
+              {recentRuns.map((run) => (
+                <article key={run.id}>
+                  <div className="studio-recent-media">
+                    {run.resultUrl ? <ResultMedia generation={run} /> : <div><CircleNotch className={!["failed", "cancelled"].includes(run.status) ? "spin" : ""} size={24} /><span>{t(formatStatus(run.status, t))}</span></div>}
+                  </div>
+                  <div className="studio-recent-copy">
+                    <span>{formatDate(run.createdAt)} · {formatCents(run.chargeCents)}</span>
+                    <strong>{run.prompt}</strong>
+                  </div>
+                  <div className="studio-recent-actions">
+                    <button type="button" onClick={() => reuseRun(run)}>{t("Reuse")}</button>
+                    {run.resultUrl && !run.resultContentType?.startsWith("video/") && (
+                      <>
+                        <button type="button" onClick={() => useResultAsReference(run, "image")}>{t("Transform")}</button>
+                        <button type="button" onClick={() => useResultAsReference(run, "video")}>{t("Animate")}</button>
+                      </>
+                    )}
+                    {run.resultUrl && <a href={run.resultUrl} target="_blank" rel="noreferrer" aria-label={t("Open result in a new tab")}><DownloadSimple size={14} /></a>}
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="studio-recent-empty">
+              <ImageSquare size={24} />
+              <p><strong>{t("Your first result will land here.")}</strong><span>{t("Every completed run stays attached to your account.")}</span></p>
+            </div>
+          )}
+        </div>
       </section>
 
       <footer className="studio-footer">

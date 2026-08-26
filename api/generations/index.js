@@ -5,7 +5,7 @@ import {
   releaseGeneration,
   reserveGeneration,
 } from "../_lib/db.js";
-import { OUTCOME_CONFIG, submitFal } from "../_lib/fal.js";
+import { OUTCOME_CONFIG, resolveGenerationConfig, submitFal } from "../_lib/fal.js";
 import { methodNotAllowed, publicError, readJsonBody, sendJson } from "../_lib/http.js";
 
 export default async function handler(request, response) {
@@ -19,24 +19,52 @@ export default async function handler(request, response) {
     const body = readJsonBody(request);
     const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
     const outcome = typeof body.outcome === "string" ? body.outcome : "";
+    const referenceUrl = typeof body.referenceUrl === "string" ? body.referenceUrl.trim() : "";
+    const style = typeof body.style === "string" ? body.style : "natural";
+    const aspectRatio = typeof body.aspectRatio === "string" ? body.aspectRatio : undefined;
+    const referenceStrength = body.referenceStrength;
     const config = OUTCOME_CONFIG[outcome];
 
     if (!config) return sendJson(response, 400, { error: "Choose a valid outcome." });
     if (!prompt || prompt.length > 2000) {
       return sendJson(response, 400, { error: "Use a prompt between 1 and 2,000 characters." });
     }
+    if (referenceUrl) {
+      let parsed;
+      try {
+        parsed = new URL(referenceUrl);
+      } catch {
+        return sendJson(response, 400, { error: "Use a valid HTTPS reference URL." });
+      }
+      if (parsed.protocol !== "https:" || ["localhost", "127.0.0.1", "::1"].includes(parsed.hostname)) {
+        return sendJson(response, 400, { error: "Use a public HTTPS reference URL." });
+      }
+    }
+
+    const resolved = resolveGenerationConfig(outcome, {
+      prompt,
+      referenceUrl,
+      style,
+      aspectRatio,
+      referenceStrength,
+    });
 
     generationId = `lm_${nanoid(14)}`;
     await reserveGeneration({
       id: generationId,
       userId: user.id,
       outcome,
-      model: config.model,
+      model: resolved.model,
       prompt,
       chargeCents: config.chargeCents,
     });
 
-    const queued = await submitFal(outcome, prompt);
+    const queued = await submitFal(outcome, prompt, {
+      referenceUrl,
+      style,
+      aspectRatio,
+      referenceStrength,
+    });
     const generation = await markGenerationQueued(generationId, user.id, queued.request_id);
     return sendJson(response, 202, { generation });
   } catch (error) {

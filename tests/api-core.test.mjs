@@ -7,7 +7,12 @@ import {
   userDailyLimitCents,
 } from "../api/_lib/db.js";
 import { welcomeEmail } from "../api/_lib/email.js";
-import { extractMedia, OUTCOME_CONFIG, submitFal } from "../api/_lib/fal.js";
+import {
+  extractMedia,
+  OUTCOME_CONFIG,
+  resolveGenerationConfig,
+  submitFal,
+} from "../api/_lib/fal.js";
 import { publicError } from "../api/_lib/http.js";
 import {
   CREDIT_PACKS,
@@ -27,6 +32,43 @@ test("generation routes map to the intended provider models and customer prices"
       cinematic: { model: "fal-ai/kling-video/v2.5-turbo/pro/text-to-video", chargeCents: 42 },
       quality: { model: "fal-ai/flux-pro/v1.1-ultra", chargeCents: 76 },
     },
+  );
+});
+
+test("generation settings resolve into the intended text, reference, and motion routes", () => {
+  const draft = resolveGenerationConfig("fast", {
+    prompt: "A quiet observatory",
+    aspectRatio: "9:16",
+  });
+  assert.equal(draft.model, "fal-ai/flux/schnell");
+  assert.equal(draft.input.image_size, "portrait_16_9");
+
+  const transform = resolveGenerationConfig("quality", {
+    prompt: "Preserve the bottle",
+    referenceUrl: "https://cdn.example/reference.jpg",
+    referenceStrength: 5,
+    style: "product",
+  });
+  assert.equal(transform.model, "fal-ai/flux/krea/image-to-image");
+  assert.equal(transform.input.image_url, "https://cdn.example/reference.jpg");
+  assert.equal(transform.input.strength, 0.95);
+  assert.match(transform.input.prompt, /Premium product photography/);
+
+  const motion = resolveGenerationConfig("cinematic", {
+    prompt: "The fabric moves in the wind",
+    referenceUrl: "https://cdn.example/frame.webp",
+    aspectRatio: "1:1",
+  });
+  assert.equal(motion.model, "fal-ai/kling-video/v2.5-turbo/pro/image-to-video");
+  assert.equal(motion.input.image_url, "https://cdn.example/frame.webp");
+  assert.equal(motion.input.aspect_ratio, "1:1");
+
+  assert.throws(
+    () => resolveGenerationConfig("fast", {
+      prompt: "Transform it",
+      referenceUrl: "https://cdn.example/reference.jpg",
+    }),
+    /References require/,
   );
 });
 
