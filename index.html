@@ -13,13 +13,17 @@
     />
     <meta name="theme-color" content="#EEE6D6" />
     <link rel="canonical" href="https://lmiere.com/" />
-    <link rel="icon" href="/brand/favicon.ico" sizes="any" />
-    <link rel="icon" href="/brand/lmiere-mark.svg" type="image/svg+xml" />
-    <link rel="apple-touch-icon" href="/brand/lmiere-app-icon-180.png" />
-    <link rel="manifest" href="/site.webmanifest" />
+    <link rel="icon" href="/brand/lmiere-app-icon.svg?v=20260805" type="image/svg+xml" />
+    <link rel="icon" href="/brand/favicon.ico?v=20260805" sizes="any" />
+    <link rel="icon" href="/brand/lmiere-app-icon-32.png?v=20260805" type="image/png" sizes="32x32" />
+    <link rel="shortcut icon" href="/brand/favicon.ico?v=20260805" />
+    <link rel="apple-touch-icon" href="/brand/lmiere-app-icon-180.png?v=20260805" />
+    <link rel="mask-icon" href="/brand/lmiere-mark.svg?v=20260805" color="#153E78" />
+    <link rel="manifest" href="/site.webmanifest?v=20260805" />
     <link rel="preload" href="/fonts/BodoniModa-Variable.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/IBMPlexMono-Regular.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/assets/lmiere-field-machine.webp" as="image" type="image/webp" />
+    <link rel="stylesheet" href="/src/styles.css" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Lmiere" />
     <meta property="og:locale" content="en_US" />
@@ -38,7 +42,67 @@
     <title>Lmiere — Pay per generation</title>
   </head>
   <body>
-    <div id="root"></div>
+    <!--
+      ART DIRECTION CONTRACT
+      Archival field manual meets a living interpretation machine: one paper field,
+      one cobalt apparatus, monumental Bodoni, precise mono metadata, and a single
+      restrained motion narrative. This complete first frame is also the resilient,
+      indexable fallback; React replaces it when JavaScript is available.
+
+      STUDIO CONTRACT
+      THESIS: a north-lit optical bench for making, never a provider dashboard.
+      OWN-WORLD: pale mineral field, charcoal notation, cobalt action, indexed rows.
+      STORY: describe, choose, approve, then watch one private output field awaken.
+      FIRST VIEWPORT: controls occupy the narrow left rail; the result owns the room.
+      FORM: quiet spatial index, pinned by the user through Offporter's principles.
+      FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md.
+    -->
+    <div id="root">
+      <main class="landing-screen static-landing-fallback">
+        <section class="landing-intro" aria-label="Lmiere field manual cover">
+          <header class="landing-header">
+            <a class="landing-brand" href="/" aria-label="Lmiere home">
+              <span class="brand-seal static-brand-seal" aria-hidden="true">L<i>✦</i></span>
+              <span>Lmiere<br />Field manual</span>
+            </a>
+            <div class="landing-meta" aria-label="Edition details">
+              <span>Issue 001<br />Pay-per-generation</span>
+              <span>No. LM-001-FG<br />Private beta</span>
+            </div>
+            <nav class="landing-nav" aria-label="Landing navigation">
+              <a href="/archive">Archive</a>
+              <a class="landing-nav-account" href="/account">Account</a>
+              <a class="landing-nav-cta" href="/studio">Open studio</a>
+            </nav>
+          </header>
+          <div class="landing-rule" aria-hidden="true"></div>
+          <section class="landing-hero">
+            <div class="signal-image landing-machine">
+              <img src="/assets/lmiere-field-machine.webp" alt="A meteorite fused with a precision camera mechanism, drawn like a scientific blueprint" />
+            </div>
+            <div class="landing-copy">
+              <p class="landing-kicker">// Field apparatus 001</p>
+              <h1>Lmiere</h1>
+              <p class="landing-thesis">A machine for making images and motion that have <em>not yet</em> happened.</p>
+              <p class="landing-summary">Describe the unseen. Choose the outcome. Know the exact price before the machine begins.</p>
+              <div class="landing-actions">
+                <a class="primary-paper-button" href="/studio">Enter the machine <span aria-hidden="true">→</span></a>
+                <a class="text-paper-button" href="#static-method">How it works <span aria-hidden="true">↗</span></a>
+              </div>
+            </div>
+            <div class="landing-annotation landing-annotation-a" aria-hidden="true"><span>A.</span><p>Latent image chamber</p></div>
+            <div class="landing-annotation landing-annotation-b" aria-hidden="true"><span>B.</span><p>Interpretation lens</p></div>
+          </section>
+          <footer class="landing-footer" id="static-method">
+            <div><span>01</span><strong>Describe the unseen</strong><small>Use ordinary language</small></div>
+            <div><span>02</span><strong>Choose an outcome</strong><small>Image, motion, or detail</small></div>
+            <div><span>03</span><strong>Approve the exact cost</strong><small>No subscription required</small></div>
+            <p>Recovered 2026<br />Lmiere Labs</p>
+          </footer>
+          <p class="landing-edge-note">Open field test // Europe · Morocco · United States</p>
+        </section>
+      </main>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

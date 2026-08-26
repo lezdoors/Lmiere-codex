@@ -8,3 +8,5 @@ npm-debug.log*
 
 .neon
 .vercel
+graphify-out/
+.impeccable/

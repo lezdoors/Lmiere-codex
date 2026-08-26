@@ -6,18 +6,18 @@ const app = await readFile(new URL("../src/App.jsx", import.meta.url), "utf8");
 const signal = await readFile(new URL("../src/AsciiSignal.jsx", import.meta.url), "utf8");
 const styles = await readFile(new URL("../src/styles.css", import.meta.url), "utf8");
 
-test("Phosphor is one recovered artifact, not a new landing chapter or hero replacement", async () => {
+test("Phosphor remains one bounded artifact inside the transmission chapter", async () => {
   const records = app.indexOf("landing-records-section");
   const phosphor = app.indexOf("field-record-phosphor");
   const method = app.indexOf("landing-method-section");
 
   assert.ok(records >= 0);
+  assert.ok(records > method);
   assert.ok(phosphor > records);
-  assert.ok(method > phosphor);
   assert.doesNotMatch(app, /landing-signal-section/);
-  assert.match(app, /lmiere-phosphor-source\.webp/);
+  assert.match(app, /field-record-phosphor[\s\S]*?lmiere-specimen-awake\.webp/);
   assert.match(app, /Phosphor bloom/);
-  await access(new URL("../public/assets/lmiere-phosphor-source.webp", import.meta.url));
+  await access(new URL("../public/assets/lmiere-specimen-awake.webp", import.meta.url));
 });
 
 test("the ASCII canvas pauses offscreen and respects reduced motion", () => {

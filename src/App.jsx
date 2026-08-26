@@ -29,6 +29,7 @@ import {
 } from "./auth.js";
 import { isFullName, normalizeFullName } from "./account-validation.js";
 import AsciiSignal from "./AsciiSignal.jsx";
+import LatentField from "./LatentField.jsx";
 import { LanguageSwitch, localizeError, useLanguage } from "./i18n.jsx";
 
 const OUTCOMES = [
@@ -38,6 +39,7 @@ const OUTCOMES = [
     studioLabel: "Fast image",
     description: "Quick ideas and visual exploration",
     price: 0.08,
+    priceCents: 8,
     eta: "~8 sec",
     signal: "IMG / 4:3",
   },
@@ -47,6 +49,7 @@ const OUTCOMES = [
     studioLabel: "Cinematic motion",
     description: "Movement, atmosphere and story",
     price: 0.42,
+    priceCents: 42,
     eta: "~45 sec",
     signal: "VID / 16:9",
   },
@@ -56,9 +59,34 @@ const OUTCOMES = [
     studioLabel: "Highest quality",
     description: "Maximum detail and fidelity",
     price: 0.76,
+    priceCents: 76,
     eta: "~70 sec",
     signal: "IMG / 4:3",
   },
+];
+
+const STARTER_PROMPTS = [
+  {
+    label: "Product study",
+    prompt: "A translucent perfume bottle on brushed aluminum, hard morning light, precise editorial photography",
+  },
+  {
+    label: "Motion study",
+    prompt: "A silver coat moving through rain at night, slow tracking shot, reflections breathing across the fabric",
+  },
+  {
+    label: "Impossible place",
+    prompt: "An impossible observatory carved into red stone, quiet figures for scale, photographed at blue hour",
+  },
+];
+
+const LANDING_CHAPTERS = [
+  { id: "apparatus", numeral: "I", label: "Apparatus" },
+  { id: "outcomes", numeral: "II", label: "Outcomes" },
+  { id: "mechanism", numeral: "III", label: "Mechanism" },
+  { id: "transmission", numeral: "IV", label: "Transmission" },
+  { id: "ownership", numeral: "V", label: "Ownership" },
+  { id: "studio-entry", numeral: "VI", label: "Studio" },
 ];
 
 const CREDIT_PACKS = [
@@ -783,33 +811,132 @@ function SidePanel({
 
 function LandingScreen({ onEnterStudio, onOpenPanel, onNavigate, session }) {
   const { formatPrice, language, t } = useLanguage();
+  const rootRef = useRef(null);
+  const motionRef = useRef(null);
+  const activeChapterRef = useRef("apparatus");
+  const transitionRef = useRef(false);
+  const [activeChapter, setActiveChapter] = useState("apparatus");
+
+  const activeChapterIndex = LANDING_CHAPTERS.findIndex((chapter) => chapter.id === activeChapter);
+  const previousChapter = LANDING_CHAPTERS[activeChapterIndex - 1];
+  const nextChapter = LANDING_CHAPTERS[activeChapterIndex + 1];
+
+  const selectChapter = useCallback((chapterId) => {
+    const currentId = activeChapterRef.current;
+    const currentIndex = LANDING_CHAPTERS.findIndex((chapter) => chapter.id === currentId);
+    const targetIndex = LANDING_CHAPTERS.findIndex((chapter) => chapter.id === chapterId);
+    if (targetIndex < 0 || chapterId === currentId || transitionRef.current) return;
+
+    const commit = () => {
+      activeChapterRef.current = chapterId;
+      setActiveChapter(chapterId);
+    };
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const transition = motionRef.current;
+
+    if (!transition || reducedMotion) {
+      commit();
+      return;
+    }
+
+    transitionRef.current = true;
+    transition(rootRef.current, currentId, chapterId, targetIndex > currentIndex ? 1 : -1, commit)
+      .catch(commit)
+      .finally(() => {
+        transitionRef.current = false;
+      });
+  }, []);
+
+  useEffect(() => {
+    let disposed = false;
+    let cleanup = () => {};
+
+    import("./motion.js")
+      .then(({ mountLandingMotion, transitionLandingChapter }) => {
+        if (!disposed) {
+          motionRef.current = transitionLandingChapter;
+          cleanup = mountLandingMotion(rootRef.current);
+        }
+      })
+      .catch(() => {
+        // The complete static frame remains usable if the optional motion chunk fails.
+      });
+
+    return () => {
+      disposed = true;
+      motionRef.current = null;
+      cleanup();
+    };
+  }, []);
+
+  useEffect(() => {
+    function onChapterKeydown(event) {
+      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName)) return;
+      if (event.key === "ArrowLeft" && previousChapter) selectChapter(previousChapter.id);
+      if (event.key === "ArrowRight" && nextChapter) selectChapter(nextChapter.id);
+      if (event.key === "Escape" && activeChapter !== "apparatus") selectChapter("apparatus");
+    }
+
+    window.addEventListener("keydown", onChapterKeydown);
+    return () => window.removeEventListener("keydown", onChapterKeydown);
+  }, [activeChapter, nextChapter, previousChapter, selectChapter]);
+
   return (
-    <main className="landing-screen">
-      <section className="landing-intro" aria-label="Lmiere field manual cover">
-        <header className="landing-header">
-          <button className="landing-brand" type="button" aria-label="Lmiere home" onClick={() => onNavigate("/")}>
-            <BrandMark />
-            <span>Lmiere<br />{t("Field manual")}</span>
+    <main className="landing-screen" ref={rootRef} data-active-chapter={activeChapter}>
+      <header className="landing-header landing-stage-header">
+        <button className="landing-brand" type="button" aria-label="Lmiere home" onClick={() => selectChapter("apparatus")}>
+          <BrandMark />
+          <span>Lmiere<br />{t("Field manual")}</span>
+        </button>
+
+        <nav className="chapter-stepper" aria-label={t("Chapter controls")}>
+          <button type="button" disabled={!previousChapter} onClick={() => previousChapter && selectChapter(previousChapter.id)}>
+            <ArrowLeft size={13} weight="light" />
+            <span>{t("Previous")}</span>
           </button>
+          <p aria-live="polite">
+            <span>{t("Chapter")} {LANDING_CHAPTERS[activeChapterIndex]?.numeral}</span>
+            <strong>{t(LANDING_CHAPTERS[activeChapterIndex]?.label || "Apparatus")}</strong>
+          </p>
+          <button type="button" disabled={!nextChapter} onClick={() => nextChapter && selectChapter(nextChapter.id)}>
+            <span>{t("Next")}</span>
+            <ArrowRight size={13} weight="light" />
+          </button>
+        </nav>
 
-          <div className="landing-meta" aria-label="Edition details">
-            <span>{t("Issue 001")}<br />{t("Pay-per-generation")}</span>
-            <span>No. LM-001-FG<br />{t("Private beta")}</span>
-          </div>
+        <nav className="landing-nav" aria-label="Landing navigation">
+          <button type="button" onClick={() => onNavigate("/archive")}>{t("Archive")}</button>
+          <button className="landing-nav-account" type="button" onClick={() => onOpenPanel("Sign in")}>
+            <span className="landing-account-full">{session?.user?.name || t("Sign in")}</span>
+            <span className="landing-account-short">{t("Account")}</span>
+          </button>
+          <LanguageSwitch className="language-switch-paper" />
+          <button className="landing-nav-cta" type="button" onClick={onEnterStudio}>{t("Open studio")}</button>
+        </nav>
+      </header>
 
-          <nav className="landing-nav" aria-label="Landing navigation">
-            <button type="button" onClick={() => onNavigate("/archive")}>{t("Archive")}</button>
-            <button className="landing-nav-account" type="button" onClick={() => onOpenPanel("Sign in")}>
-              <span className="landing-account-full">{session?.user?.name || t("Sign in")}</span>
-              <span className="landing-account-short">{t("Account")}</span>
-            </button>
-            <LanguageSwitch className="language-switch-paper" />
-            <button className="landing-nav-cta" type="button" onClick={onEnterStudio}>{t("Open studio")}</button>
-          </nav>
-        </header>
+      <div className="landing-rule" aria-hidden="true" />
 
-        <div className="landing-rule" aria-hidden="true" />
+      <nav className="field-index" aria-label={t("Field index")}>
+        <ol>
+          {LANDING_CHAPTERS.map((chapter) => (
+            <li key={chapter.id}>
+              <button
+                type="button"
+                aria-label={`${chapter.numeral}. ${t(chapter.label)}`}
+                aria-current={activeChapter === chapter.id ? "page" : undefined}
+                onClick={() => selectChapter(chapter.id)}
+              >
+                <span>{chapter.numeral}</span>
+                <small>{t(chapter.label)}</small>
+              </button>
+            </li>
+          ))}
+        </ol>
+      </nav>
 
+      <section className={`landing-intro field-chapter${activeChapter === "apparatus" ? " is-active" : ""}`} id="apparatus" data-field-chapter aria-label="Lmiere field manual cover" aria-hidden={activeChapter !== "apparatus"} inert={activeChapter !== "apparatus"}>
         <section className="landing-hero">
           <SignalImage
             className="landing-machine"
@@ -828,9 +955,9 @@ function LandingScreen({ onEnterStudio, onOpenPanel, onNavigate, session }) {
               <button className="primary-paper-button" type="button" onClick={onEnterStudio}>
                 {t("Enter the machine")} <ArrowRight size={21} weight="light" />
               </button>
-              <a className="text-paper-button" href="#landing-method">
+              <button className="text-paper-button" type="button" onClick={() => selectChapter("mechanism")}>
                 {t("How it works")} <ArrowRight className="north-east-arrow" size={14} />
-              </a>
+              </button>
             </div>
           </div>
 
@@ -852,7 +979,8 @@ function LandingScreen({ onEnterStudio, onOpenPanel, onNavigate, session }) {
         <p className="landing-edge-note">{t("Open field test // Europe · Morocco · United States")}</p>
       </section>
 
-      <section className="landing-section landing-outcomes-section" id="outcomes">
+      <section className={`landing-section landing-outcomes-section field-chapter${activeChapter === "outcomes" ? " is-active" : ""}`} id="outcomes" data-field-chapter aria-hidden={activeChapter !== "outcomes"} inert={activeChapter !== "outcomes"}>
+        <div className="chapter-coordinate" aria-hidden="true"><span>II</span><small>{t("Outcomes")}</small></div>
         <header className="manual-section-heading">
           <div>
             <p className="landing-kicker">// {t("Outcome catalog 001–003")}</p>
@@ -874,31 +1002,8 @@ function LandingScreen({ onEnterStudio, onOpenPanel, onNavigate, session }) {
         </div>
       </section>
 
-      <section className="landing-section landing-records-section" aria-labelledby="field-records-title">
-        <header className="manual-section-heading records-heading">
-          <div>
-            <p className="landing-kicker">// {t("Recovered outputs")}</p>
-            <h2 id="field-records-title">{t("Field records from")}<br /><em>{t("the unseen.")}</em></h2>
-          </div>
-          <p>{t("Every completed run returns as a private record: the result, the prompt that made it, the route used, and the exact amount charged.")}</p>
-        </header>
-
-        <div className="field-record-grid">
-          <figure className="field-record field-record-cabin">
-            <SignalImage src="/assets/lmiere-result-cabin.webp" alt="A glass cabin glowing in a wet forest, shown as a completed generation" />
-            <figcaption><span>Record LM–029</span><strong>{t("A memory of rain inside a glass house")}</strong><small>{t("Cinematic motion")} / {formatPrice(0.42)}</small></figcaption>
-          </figure>
-          <figure className="field-record field-record-phosphor">
-            <AsciiSignal
-              src="/assets/lmiere-phosphor-source.webp"
-              alt={t("A flower study rendered as a living green phosphor character field")}
-            />
-            <figcaption><span>Specimen LM–088</span><strong>{t("Phosphor bloom")}</strong><small>{t("Highest quality")} / {formatPrice(0.76)}</small></figcaption>
-          </figure>
-        </div>
-      </section>
-
-      <section className="landing-section landing-method-section" id="landing-method">
+      <section className={`landing-section landing-method-section field-chapter${activeChapter === "mechanism" ? " is-active" : ""}`} id="mechanism" data-field-chapter aria-hidden={activeChapter !== "mechanism"} inert={activeChapter !== "mechanism"}>
+        <div className="chapter-coordinate" aria-hidden="true"><span>III</span><small>{t("Mechanism")}</small></div>
         <header className="manual-section-heading method-heading">
           <div>
             <p className="landing-kicker">// {t("Operating procedure")}</p>
@@ -907,13 +1012,7 @@ function LandingScreen({ onEnterStudio, onOpenPanel, onNavigate, session }) {
           <p>{t("No subscription maze. No model directory. No shared team balance. The essential decisions stay visible and the infrastructure disappears.")}</p>
         </header>
 
-        <div className="landing-trust-grid">
-          <article><ShieldCheck size={27} weight="light" /><span>01</span><h3>{t("Private by account")}</h3><p>{t("Your balance, runs, and archive are isolated from every other member.")}</p></article>
-          <article><Receipt size={27} weight="light" /><span>02</span><h3>{t("Exact cost first")}</h3><p>{t("Approve a fixed price before the run. Failed runs release the charge.")}</p></article>
-          <article><LockKey size={27} weight="light" /><span>03</span><h3>{t("Complexity stays hidden")}</h3><p>{t("Choose an outcome in plain language. Lmiere selects the route behind the scenes.")}</p></article>
-        </div>
-
-        <div className="landing-procedure">
+        <div className="landing-procedure" id="landing-method">
           <ol>
             <li><span>01</span><strong>{t("Describe the unseen")}</strong><p>{t("Write an ordinary sentence. Precision is welcome; jargon is not required.")}</p></li>
             <li><span>02</span><strong>{t("Choose the outcome")}</strong><p>{t("Pick speed, motion, or maximum detail and see its price immediately.")}</p></li>
@@ -927,27 +1026,83 @@ function LandingScreen({ onEnterStudio, onOpenPanel, onNavigate, session }) {
         </div>
       </section>
 
-      <section className="landing-closing-section">
+      <section className={`landing-section landing-records-section field-chapter${activeChapter === "transmission" ? " is-active" : ""}`} id="transmission" data-field-chapter aria-labelledby="field-records-title" aria-hidden={activeChapter !== "transmission"} inert={activeChapter !== "transmission"}>
+        <div className="chapter-coordinate" aria-hidden="true"><span>IV</span><small>{t("Transmission")}</small></div>
+        <header className="manual-section-heading records-heading">
+          <div>
+            <p className="landing-kicker">// {t("Recovered outputs")}</p>
+            <h2 id="field-records-title">{t("Field records from")}<br /><em>{t("the unseen.")}</em></h2>
+          </div>
+          <p>{t("Every completed run returns as a private record: the result, the prompt that made it, the route used, and the exact amount charged.")}</p>
+        </header>
+
+        <div className="transmission-field">
+          <figure className="field-record field-record-phosphor">
+            <AsciiSignal
+              src="/assets/lmiere-specimen-awake.webp"
+              alt={t("The Lmiere specimen rendered as a living green phosphor character field")}
+            />
+            <figcaption><span>Specimen LM–088</span><strong>{t("Phosphor bloom")}</strong><small>{t("Highest quality")} / {formatPrice(0.76)}</small></figcaption>
+          </figure>
+          <div className="transmission-evidence">
+            <figure className="field-record field-record-reel">
+              <video autoPlay muted loop playsInline preload="metadata" poster="/assets/lmiere-specimen-awake.webp" aria-label={t("A generated signal moving through the Lmiere field")}>
+                <source src="/assets/lmiere-signal-ripple.mp4" type="video/mp4" />
+              </video>
+              <figcaption><span>Transmission 004</span><strong>{t("The network, awake")}</strong><small>{t("Cinematic motion")} / LOOP</small></figcaption>
+            </figure>
+            <figure className="field-record field-record-cabin">
+              <SignalImage src="/assets/lmiere-result-cabin.webp" alt="A glass cabin glowing in a wet forest, shown as a completed generation" />
+              <figcaption><span>Record LM–029</span><strong>{t("A memory of rain inside a glass house")}</strong><small>{t("Cinematic motion")} / {formatPrice(0.42)}</small></figcaption>
+            </figure>
+          </div>
+        </div>
+      </section>
+
+      <section className={`landing-section landing-ownership-section field-chapter${activeChapter === "ownership" ? " is-active" : ""}`} id="ownership" data-field-chapter aria-hidden={activeChapter !== "ownership"} inert={activeChapter !== "ownership"}>
+        <div className="chapter-coordinate" aria-hidden="true"><span>V</span><small>{t("Ownership")}</small></div>
+        <SignalImage
+          className="ownership-vision"
+          src="/assets/lmiere-phosphor-source.webp"
+          alt=""
+          aria-hidden="true"
+        />
+        <div className="ownership-grain" aria-hidden="true" />
+        <header className="ownership-heading" data-chapter-reveal>
+          <div>
+            <LockKey size={28} weight="light" />
+            <p className="landing-kicker">// {t("Private by account")}</p>
+          </div>
+          <h2>{t("One balance. Yours alone.")}</h2>
+          <div className="ownership-manifesto">
+            <p>{t("Your balance, runs, and archive are isolated from every other member.")}</p>
+            <p>{t("Every price is visible before the machine begins. Every completed result returns to your private record.")}</p>
+            <p>{t("The infrastructure stays out of sight. Your work does not.")}</p>
+          </div>
+        </header>
+
+        <div className="ownership-evidence" data-chapter-reveal>
+          <span><ShieldCheck size={15} weight="light" />{t("Private by account")}</span>
+          <span><Receipt size={15} weight="light" />{t("Exact cost first")}</span>
+          <span><LockKey size={15} weight="light" />{t("Failed runs release the charge")}</span>
+        </div>
+      </section>
+
+      <section className={`landing-closing-section field-chapter${activeChapter === "studio-entry" ? " is-active" : ""}`} id="studio-entry" data-field-chapter aria-hidden={activeChapter !== "studio-entry"} inert={activeChapter !== "studio-entry"}>
+        <div className="chapter-coordinate chapter-coordinate-closing" aria-hidden="true"><span>VI</span><small>{t("Studio")}</small></div>
         <SignalImage className="landing-closing-image" src="/assets/lmiere-specimen-idle.webp" alt="A dormant neural specimen fading from archival paper into a dark network" />
         <div>
           <p className="landing-kicker">// {t("Machine standing by")}</p>
           <h2>{t("Make the thing")}<br />{t("you cannot find.")}</h2>
           <p>{t("Begin with an image for eight cents. Leave with a private record, not another dashboard to learn.")}</p>
           <button className="primary-paper-button" type="button" onClick={onEnterStudio}>{t("Enter the machine")} <ArrowRight size={21} /></button>
+          <nav className="closing-links" aria-label={t("Company links")}>
+            <button type="button" onClick={() => onNavigate("/privacy")}>{t("Privacy")}</button>
+            <button type="button" onClick={() => onNavigate("/terms")}>{t("Terms")}</button>
+            <span>© 2026 Lmiere Labs</span>
+          </nav>
         </div>
       </section>
-
-      <footer className="landing-site-footer">
-        <div><BrandMark dark /><span>Lmiere<br />{t("Field manual")}</span></div>
-        <nav aria-label="Footer navigation">
-          <button type="button" onClick={() => onNavigate("/studio")}>{t("Studio")}</button>
-          <button type="button" onClick={() => onNavigate("/archive")}>{t("Archive")}</button>
-          <button type="button" onClick={() => onNavigate("/account")}>{t("Account")}</button>
-          <a href="/privacy" onClick={(event) => { event.preventDefault(); onNavigate("/privacy"); }}>{t("Privacy")}</a>
-          <a href="/terms" onClick={(event) => { event.preventDefault(); onNavigate("/terms"); }}>{t("Terms")}</a>
-        </nav>
-        <p>© 2026 Lmiere Labs<br />{t("Open field test")}</p>
-      </footer>
     </main>
   );
 }
@@ -964,7 +1119,7 @@ function StudioScreen({
 }) {
   const { formatCents, formatPrice, t } = useLanguage();
   const [selectedId, setSelectedId] = useState(initialDraft?.outcome ?? "cinematic");
-  const [prompt, setPrompt] = useState(initialDraft?.prompt ?? t("A memory of rain inside a glass house"));
+  const [prompt, setPrompt] = useState(initialDraft?.prompt ?? "");
   const [phase, setPhase] = useState("idle");
   const [progress, setProgress] = useState(0);
   const [generation, setGeneration] = useState(null);
@@ -972,6 +1127,20 @@ function StudioScreen({
 
   const outcome = useMemo(() => outcomeById(selectedId), [selectedId]);
   const isRunning = phase === "submitting" || phase === "generating";
+  const availableCents = account?.availableCents ?? 0;
+  const needsCredit = Boolean(session?.user) && availableCents < outcome.priceCents;
+
+  useEffect(() => {
+    if (!session?.user || phase !== "idle" || generation) return;
+    const active = runs.find((run) => ["reserved", "queued", "in_queue", "in_progress"].includes(run.status));
+    if (!active) return;
+
+    setSelectedId(active.outcome);
+    setPrompt(active.prompt);
+    setGeneration(active);
+    setProgress(Math.max(active.progress ?? 0, 5));
+    setPhase("generating");
+  }, [generation, phase, runs, session?.user]);
 
   useEffect(() => {
     if (!isRunning) return undefined;
@@ -1032,6 +1201,11 @@ function StudioScreen({
       onOpenPanel("Sign in");
       return;
     }
+    if (needsCredit) {
+      setError(t("Add credit to your private wallet before beginning this run."));
+      onNavigate("/account");
+      return;
+    }
 
     setError("");
     setGeneration(null);
@@ -1068,22 +1242,18 @@ function StudioScreen({
     <main className="studio-screen">
       <header className="studio-header">
         <button className="studio-brand" type="button" onClick={onReturn} aria-label={t("Return to the field manual")}>
-          <span>Lmiere<Sparkle size={10} weight="fill" /></span>
-          <small>{t("Distributed image machine")}</small>
+          <BrandMark dark />
+          <span><strong>Lmiere</strong><small>{t("Studio / Daily image machine")}</small></span>
         </button>
 
-        <div className="studio-system-meta">
-          <div><span>{t("Network status")}</span><strong>{t("Nominal / 03 routes")}</strong></div>
-          <div><span>{t("Queue")}</span><strong>{t(isRunning ? "Active / Working" : "00:00 / Ready")}</strong></div>
-          <div><span>{t("Archive")}</span><strong>{t("Account-isolated / Private")}</strong></div>
-        </div>
+        <p className="studio-header-note">{t("One prompt. One outcome. One exact price.")}</p>
 
         <nav className="studio-nav" aria-label="Studio navigation">
           <button type="button" onClick={() => onNavigate("/archive")}>{t("Archive")} / {String(runs.length).padStart(2, "0")}</button>
           <button type="button" onClick={() => onNavigate("/account")}>
             {t("Wallet")} <strong>{session ? formatCents(account?.availableCents) : t("Sign in")}</strong>
           </button>
-          <LanguageSwitch className="language-switch-night" />
+          <LanguageSwitch className="language-switch-paper" />
           <button className="studio-exit" type="button" onClick={onReturn} aria-label={t("Return to landing page")}>
             <ArrowLeft size={16} /> {t("Manual")}
           </button>
@@ -1093,89 +1263,116 @@ function StudioScreen({
       <nav className="studio-mobile-nav" aria-label="Mobile studio navigation">
         <button type="button" aria-current="page">{t("Studio")}</button>
         <button type="button" onClick={() => onNavigate("/archive")}>{t("Archive")} / {String(runs.length).padStart(2, "0")}</button>
-        <button type="button" onClick={() => onNavigate("/account")}>{t("Wallet")} {session ? formatCents(account?.availableCents) : t("Sign in")}</button>
-        <LanguageSwitch className="language-switch-night" />
+        <button type="button" onClick={() => onNavigate("/account")}>{t("Account")} {session ? formatCents(account?.availableCents) : ""}</button>
+        <LanguageSwitch className="language-switch-paper" />
       </nav>
 
-      <section className="studio-prompt-zone" aria-labelledby="studio-prompt-heading">
-        <div className="studio-index">{t("Input / 01")}</div>
-        <div>
-          <p className="studio-label">{t("Prompt stream")}</p>
-          <label id="studio-prompt-heading" htmlFor="studio-prompt" role="heading" aria-level="1">{t("What should the network dream?")}</label>
-          <textarea
-            id="studio-prompt"
-            rows={2}
-            value={prompt}
-            onChange={(event) => {
-              setPrompt(event.target.value);
-              setError("");
-              if (phase === "complete" || phase === "failed") newRun();
-            }}
-            disabled={isRunning}
-          />
-          <small>{t("Describe any image or video. The network will interpret.")}</small>
-          {error && <p className="studio-error" role="alert">{error}</p>}
-        </div>
-      </section>
+      <section className="studio-workspace" aria-label={t("Generation workspace")}>
+        <div className="studio-controls">
+          <section className="studio-prompt-zone" aria-labelledby="studio-prompt-heading">
+            <div className="studio-control-heading"><span>{t("Describe")}</span><strong>01</strong></div>
+            <h1 id="studio-prompt-heading">{t("What do you want to make?")}</h1>
+            <label className="studio-label" htmlFor="studio-prompt">{t("Prompt")}</label>
+            <textarea
+              id="studio-prompt"
+              rows={5}
+              value={prompt}
+              placeholder={t("A memory of rain inside a glass house")}
+              onChange={(event) => {
+                setPrompt(event.target.value);
+                setError("");
+                if (phase === "complete" || phase === "failed") newRun();
+              }}
+              disabled={isRunning}
+            />
+            <small>{t("Start with one clear sentence. Add subject, mood, material, camera, or motion when it matters.")}</small>
+            <div className="studio-prompt-ideas" aria-label={t("Prompt starting points")}>
+              <span>{t("Start from")}</span>
+              {STARTER_PROMPTS.map((idea) => (
+                <button
+                  key={idea.label}
+                  type="button"
+                  onClick={() => {
+                    setPrompt(t(idea.prompt));
+                    newRun();
+                  }}
+                  disabled={isRunning}
+                >
+                  {t(idea.label)} <ArrowUpRight size={12} />
+                </button>
+              ))}
+            </div>
+            {error && <p className="studio-error" role="alert">{error}</p>}
+          </section>
 
-      <section className="studio-workspace">
-        <fieldset className="studio-outcomes" disabled={isRunning}>
-          <legend className="studio-label">{t("Outcome / choose one")}</legend>
-          {OUTCOMES.map((candidate, index) => (
-            <label className={`studio-outcome ${selectedId === candidate.id ? "is-selected" : ""}`} key={candidate.id}>
-              <input
-                type="radio"
-                name="studio-outcome"
-                value={candidate.id}
-                checked={selectedId === candidate.id}
-                onChange={() => {
-                  setSelectedId(candidate.id);
-                  newRun();
-                }}
-              />
-              <span className="studio-outcome-index">0{index + 1}</span>
-              <span>
-                <strong>{t(candidate.studioLabel)}</strong>
-                <small>{candidate.signal}</small>
-              </span>
-              <i aria-hidden="true">{selectedId === candidate.id && <Check size={12} weight="bold" />}</i>
-              <p>{t(candidate.description)}</p>
-              <em>{candidate.eta}</em>
-            </label>
-          ))}
-          <p className="studio-engine-note"><Cpu size={14} /> {t("Lmiere chooses the best engine behind the scenes.")}</p>
-        </fieldset>
+          <fieldset className="studio-outcomes" disabled={isRunning}>
+            <legend className="studio-control-heading"><span>{t("Choose outcome")}</span><strong>02</strong></legend>
+            {OUTCOMES.map((candidate, index) => (
+              <label className={`studio-outcome ${selectedId === candidate.id ? "is-selected" : ""}`} key={candidate.id}>
+                <input
+                  type="radio"
+                  name="studio-outcome"
+                  value={candidate.id}
+                  checked={selectedId === candidate.id}
+                  onChange={() => {
+                    setSelectedId(candidate.id);
+                    newRun();
+                  }}
+                />
+                <span className="studio-outcome-index">0{index + 1}</span>
+                <span className="studio-outcome-copy">
+                  <strong>{t(candidate.studioLabel)}</strong>
+                  <small>{t(candidate.description)}</small>
+                </span>
+                <span className="studio-outcome-meta">
+                  <small>{candidate.signal} / {candidate.eta}</small>
+                  <strong>{formatPrice(candidate.price)}</strong>
+                  <i aria-hidden="true">{selectedId === candidate.id && <Check size={12} weight="bold" />}</i>
+                </span>
+              </label>
+            ))}
+            <p className="studio-engine-note"><Cpu size={14} /> {t("Lmiere chooses the best engine behind the scenes.")}</p>
+          </fieldset>
 
-        <div className="studio-quote">
-          <p className="studio-label">{t("Estimated cost")}</p>
-          <output>{formatPrice(outcome.price)}</output>
-          <span>{t("USD / No subscription")}</span>
-          <button
-            className="studio-run-button"
-            type="button"
-            onClick={phase === "complete" || phase === "failed" ? newRun : beginRun}
-            disabled={isRunning}
-          >
-            {isRunning ? (
-              <><CircleNotch className="spin" size={19} /> {t("Running")} {progress}%</>
-            ) : phase === "complete" || phase === "failed" ? (
-              <>{t("New run")} <ArrowRight size={20} /></>
-            ) : (
-              <>{t("Begin run")} <ArrowRight size={20} /></>
-            )}
-          </button>
-          <small>{t("You will be charged {price} only if the run completes.", { price: formatPrice(outcome.price) })}</small>
-          <strong>03 {t("routes")} / <b>{t(isRunning ? "01 active" : "ready")}</b></strong>
+          <div className="studio-quote">
+            <div className="studio-control-heading"><span>{t("Approve")}</span><strong>03</strong></div>
+            <div className="studio-price-line"><span>{t("Exact cost")}</span><output>{formatPrice(outcome.price)}</output></div>
+            <p className={`studio-wallet-note ${needsCredit ? "is-low" : ""}`}>
+              <Wallet size={14} weight="light" />
+              {session ? t("{amount} available in your private wallet", { amount: formatCents(availableCents) }) : t("Sign in to connect your private wallet")}
+            </p>
+            <button
+              className="studio-run-button"
+              type="button"
+              onClick={needsCredit && phase === "idle" ? () => onNavigate("/account") : phase === "complete" || phase === "failed" ? newRun : beginRun}
+              disabled={isRunning}
+            >
+              {isRunning ? (
+                <><CircleNotch className="spin" size={19} /> {t("Running")} {progress}%</>
+              ) : phase === "complete" || phase === "failed" ? (
+                <>{t("New run")} <ArrowRight size={20} /></>
+              ) : needsCredit ? (
+                <>{t("Add credit")} <ArrowRight size={20} /></>
+              ) : (
+                <>{t("Begin run")} <ArrowRight size={20} /></>
+              )}
+            </button>
+            <small>{t("Charged only when the run completes. Failed runs return the reservation.")}</small>
+          </div>
         </div>
 
         <figure className={`studio-output ${isRunning ? "is-generating" : ""} ${phase === "complete" ? "is-complete" : ""}`}>
           <figcaption>
-            <span><i /> {t("Live output feed")}</span>
+            <span><i /> {t("Output field")}</span>
             <small>{outcome.signal} / {generation?.id ?? t("AWAITING")}</small>
           </figcaption>
           <div className="studio-output-frame">
             {result ? <ResultMedia generation={result} /> : (
-              <img src="/assets/lmiere-result-cabin.webp" alt="A glass cabin glowing in a forest" />
+              <LatentField
+                phase={phase}
+                progress={progress}
+                alt={t("The interpretation lens assembling while Lmiere waits for or processes a prompt")}
+              />
             )}
             {isRunning && (
               <div className="studio-output-scan" aria-live="polite">
@@ -1195,7 +1392,9 @@ function StudioScreen({
             <span>{t(phase === "complete" ? "Stored in archive" : isRunning ? "Generating" : "Awaiting run")}</span>
             <span>{phase === "idle" || phase === "failed" ? "00" : progress}%</span>
           </div>
-          <div className="studio-progress-track"><i style={{ width: `${phase === "idle" || phase === "failed" ? 0 : progress}%` }} /></div>
+          <div className="studio-progress-track">
+            <i style={{ "--studio-progress": (phase === "idle" || phase === "failed" ? 0 : progress) / 100 }} />
+          </div>
           {phase === "complete" && (
             <button className="studio-result-button" type="button" onClick={() => onNavigate(`/runs/${encodeURIComponent(generation.id)}`)}>
               {t("Open result")} <ArrowRight size={17} />
@@ -1205,14 +1404,9 @@ function StudioScreen({
       </section>
 
       <footer className="studio-footer">
-        <div className="studio-log">
-          <p className="studio-label">{t("System log")}</p>
-          <span>{t(isRunning ? "Live / Provider route active" : "Ready / Prompt route standing by")}</span>
-          <span>{t(session ? "Private wallet connected" : "Wallet waiting for sign in")}</span>
-          <span>{t("Private archive / Account-isolated")}</span>
-        </div>
-        <p>{t("Your prompt travels. Engines interpret. Images emerge.")}</p>
-        <div><span>Build 1.0.0</span><strong>{t("Status / Nominal")}</strong></div>
+        <p><span /> {t(isRunning ? "Live / Provider route active" : "Ready / Prompt route standing by")}</p>
+        <p>{t(session ? "Private wallet connected" : "Wallet waiting for sign in")} / {t("Private archive / Account-isolated")}</p>
+        <div><span>Build 1.1.0</span><strong>{t("Status / Nominal")}</strong></div>
       </footer>
     </main>
   );

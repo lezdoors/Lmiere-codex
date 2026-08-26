@@ -2,7 +2,6 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App.jsx";
 import { LanguageProvider } from "./i18n.jsx";
-import "./styles.css";
 
 class AppErrorBoundary extends React.Component {
   constructor(props) {
@@ -33,7 +32,11 @@ class AppErrorBoundary extends React.Component {
   }
 }
 
-createRoot(document.getElementById("root")).render(
+const rootElement = document.getElementById("root");
+const appRoot = rootElement.__lmiereReactRoot ?? createRoot(rootElement);
+rootElement.__lmiereReactRoot = appRoot;
+
+appRoot.render(
   <React.StrictMode>
     <AppErrorBoundary>
       <LanguageProvider>
