@@ -6,7 +6,7 @@ const $ = (s, r=document) => r.querySelector(s);
 const $$ = (s, r=document) => [...r.querySelectorAll(s)];
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const touch = matchMedia('(hover: none)').matches;
-const M = window.LMIERE_MODELS, money = window.lumenMoney;
+const M = window.LUMEN_MODELS, money = window.lumenMoney;
 const HAS = !!(window.gsap && window.ScrollTrigger);
 if(HAS) gsap.registerPlugin(ScrollTrigger);
 const fallbackStatic = () => {
@@ -59,7 +59,7 @@ else {
   gsap.to(n, {v:100, duration:1.9, ease:'power2.inOut', onComplete:() => { ready = true; if(filmOk) finish(); else setTimeout(finish, 6000); }});
   gsap.to('.pre .glow', {scale:1, opacity:1, duration:2.2, ease:'power2.out'});
   let filmOk = false;
-  (window.LMIERE_FILM ? window.LMIERE_FILM.ready : Promise.resolve(false)).then(() => { filmOk = true; preN.textContent = '100'; if(ready) finish(); });
+  (window.LUMEN_FILM ? window.LUMEN_FILM.ready : Promise.resolve(false)).then(() => { filmOk = true; preN.textContent = '100'; if(ready) finish(); });
 }
 } // HAS
 
@@ -152,7 +152,7 @@ function render(){
     <div class="row"><div class="lab">Route</div><div class="mlist">${list.map(m => `<button class="mrow ${cur.id===m.id?'on':''}" data-set="${isV?'vmodel':'model'}" data-v="${m.id}"><span class="n"><i></i>${m.name}<small>${m.cond}</small></span><span class="r num">${money(m.rate)}${m.kind==='video'?'/s':''}</span></button>`).join('')}</div></div>
     ${isV ? `<div class="row"><div class="lab">Length</div><div class="chips">${cur.lengths.map(l => `<button class="chip ${p.len===l?'on':''}" data-set="length" data-v="${l}"><span class="num">${l} s</span><small class="num">${money(p.rate*l)}</small></button>`).join('')}</div></div>
     <div class="row"><div class="lab">Sound</div><div class="chips"><button class="chip ${!d.sound?'on':''}" data-set="sound" data-v="0">Off</button><button class="chip ${d.sound?'on':''}" data-set="sound" data-v="1" ${cur.audioRate?'':'disabled'}>On ${cur.audioRate?`<small class="num">${money(cur.audioRate)}/s</small>`:'<small>not offered</small>'}</button></div></div>`
-    : `<div class="row"><div class="lab">Frame</div><div class="chips">${window.LMIERE_FRAMES.map(f => `<button class="chip ${d.frame===f?'on':''}" data-set="frame" data-v="${f}"><span class="num">${f}</span></button>`).join('')}</div></div>
+    : `<div class="row"><div class="lab">Frame</div><div class="chips">${window.LUMEN_FRAMES.map(f => `<button class="chip ${d.frame===f?'on':''}" data-set="frame" data-v="${f}"><span class="num">${f}</span></button>`).join('')}</div></div>
     ${cur.res ? `<div class="row"><div class="lab">Size</div><div class="chips">${Object.entries(cur.res).map(([k,mult]) => `<button class="chip ${p.res===k?'on':''}" data-set="res" data-v="${k}">${k}<small class="num">${money(cur.rate*mult)}</small></button>`).join('')}</div></div>` : ''}`}
     <div class="row"><div class="lab">Sentence</div><div>
       <textarea class="prompt" id="prompt" rows="2" placeholder="Describe the unseen. One ordinary sentence.">${esc(d.prompt)}</textarea>
