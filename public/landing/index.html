@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<base href="/landing/">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lmiere — the darkroom</title>
+<meta name="description" content="Lmiere is a darkroom for images and motion. Describe the unseen; the dollar figure is printed on the button before it runs. Pay per generation, no subscription.">
+<meta property="og:title" content="Lmiere — the darkroom">
+<meta property="og:description" content="Describe the unseen. Know the price before it runs.">
+<meta property="og:image" content="assets/media/hero.jpg">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='9' fill='%23D8261C'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Cormorant+Garamond:ital,wght@1,300;1,400&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body>
+
+<div class="pre" id="pre">
+  <video class="room" autoplay muted playsinline poster="assets/media/room.jpg" data-src="assets/media/room.mp4" hidden></video>
+  <div class="glow"></div>
+  <div class="l">
+    <div class="count num"><span id="preN">00</span><b>%</b></div>
+    <div class="lab mono">Safelight on<span class="serif">the print is developing</span></div>
+  </div>
+</div>
+
+<div class="grain" aria-hidden="true"></div>
+
+<nav class="nav">
+  <a class="brand" href="/"><i></i>LMIERE</a>
+  <div class="links mono">
+    <a href="#prints">Prints</a><a href="#instrument">Instrument</a><a href="#manifesto">Manifesto</a><a href="#prices">Prices</a>
+  </div>
+  <div class="right">
+    <span class="clock mono num" id="clock">--:--:--</span>
+    <a class="pill" href="/studio" data-cursor="ENTER">Open the studio <span aria-hidden="true">→</span></a>
+  </div>
+</nav>
+
+<main id="top">
+
+<!-- ================= THE FILM (scroll-scrubbed, one continuous shot) ================= -->
+<section class="film" id="film" style="--chapters:4">
+  <div class="stage">
+    <canvas id="filmCanvas" aria-hidden="true"></canvas>
+    <canvas id="splashCanvas" aria-hidden="true"></canvas>
+    <div class="vig" aria-hidden="true"></div>
+    <div class="beats">
+      <div class="beat b0" data-in="-0.1" data-peak="0" data-out="0.11">
+        <h1 aria-label="Describe the unseen.">
+          <span class="w"><span>Describe</span></span><br>
+          <span class="w row2"><span>the&nbsp;unseen.</span></span>
+        </h1>
+        <div class="sub" id="heroSub">know the price <b>before</b> it runs.</div>
+      </div>
+      <div class="beat b1" data-in="0.15" data-peak="0.21" data-out="0.29"><span class="k mono"><span class="red">01</span> The sentence</span><h2>One ordinary<br>sentence.</h2><p class="serif">No seed to guess at, no negative prompt to invent.</p></div>
+      <div class="beat b2 r" data-in="0.33" data-peak="0.39" data-out="0.47"><span class="k mono"><span class="red">02</span> The route</span><h2>Twenty routes.<br><em>One button.</em></h2><p class="serif">Veo, Kling, Seedance, Hailuo — priced side by side, to the cent.</p></div>
+      <div class="beat b3" data-in="0.51" data-peak="0.57" data-out="0.65"><span class="k mono"><span class="red">03</span> The unit</span><h2>Dollars,<br>not credits.</h2><p class="serif">A credit is a number invented so a click can never be turned back into money.</p></div>
+      <div class="beat b4 r" data-in="0.69" data-peak="0.75" data-out="0.83"><span class="k mono"><span class="red">04</span> The balance</span><h2>Nothing<br>expires.</h2><p class="serif">No plan, no pool. Your balance waits until a run spends it.</p></div>
+      <div class="beat b5 fin" data-in="0.87" data-peak="0.95" data-out="2"><span class="k mono"><span class="red">05</span> The print</span><h2>Every print<br>comes back<br>with its receipt.</h2><a class="pill fin-btn" href="/studio" data-cursor="ENTER"><span>Develop your first print</span><b class="num" id="finPrice" data-price="0.039">$0.000</b></a><div class="fine mono">The price is on the button · charged on completion · no subscription</div></div>
+    </div>
+    <div class="hud" id="hud">
+      <div class="chap mono"><span class="n num" id="hudN">00</span><span id="hudChapter">The sheet</span><i class="bar"><b id="hudBar"></b></i><span class="stamp num" id="hudStamp"></span></div>
+      <div class="rcpt mono num"><span class="lab">If you pressed this</span><span id="hudRoute">Veo 3.1 · 1080p · sound off</span><span><span id="hudSec">00.0 s</span> · <b id="hudAmt">$0.00</b></span></div>
+    </div>
+    <div class="meta mono" id="heroMeta">
+      <div class="l">Pay per generation — no subscription<br>Charged on completion · a failed run releases the charge</div>
+      <div class="exp">
+        <span class="big num">$0.039 <i>/ still</i></span>
+        <span class="big num">$0.42 <i>/ 5 s motion</i></span>
+        Read from fal · 2026-09-01
+      </div>
+    </div>
+    <div class="scroll" id="heroScroll"></div>
+    <div class="handoff" aria-hidden="true"></div>
+  </div>
+</section>
+
+<!-- ================= MARQUEE ================= -->
+<div class="marq" aria-hidden="true"><div class="t" id="marq"></div></div>
+
+<!-- ================= THE SENTENCE TRAVELS (scroll-scrubbed) ================= -->
+<section class="travel" id="travel">
+  <div class="stage">
+    <div class="develop" id="travelDev" aria-hidden="true"></div>
+    <video id="ribbon" muted playsinline preload="auto" poster="assets/media/ribbon.jpg" data-src="assets/media/ribbon.mp4"></video>
+    <div class="lines">
+      <div class="ln" data-at="0.02"><span class="k mono">00 — The sentence</span><h2>You write<br>one sentence.</h2></div>
+      <div class="ln" data-at="0.36"><span class="k mono">01 — The route</span><h2>It travels.<br><em>Engines interpret.</em></h2></div>
+      <div class="ln" data-at="0.70"><span class="k mono">02 — The print</span><h2>The image<br>arrives.</h2></div>
+    </div>
+    <div class="hint mono">Scroll to move her</div>
+  </div>
+</section>
+
+<!-- ================= PRINTS ================= -->
+<section class="prints" id="prints">
+  <div class="wrap sec-head">
+    <div><div class="eyebrow"><i></i>The prints</div><h2>Every run<br>comes back<br>as a print</h2></div>
+    <p>Every frame below is ours. Under each one: the sentence that made it, the route, and what the same print costs here. <em>Nothing is stock.</em></p>
+  </div>
+  <div class="track-wrap" id="printsWrap">
+    <div class="track" id="printsTrack">
+      <div class="intro"><div class="serif">Hang them on the line.<br>Read what each one cost.</div><div class="mono mute" style="margin-top:22px">Hover a print to play it</div></div>
+      <article class="print" style="--lean:-1.4deg; --ar:16/9" data-cursor="PLAY"><div class="pin"></div><div class="paper"><div class="img"><img src="assets/media/plates/cyclist.jpg" alt="" loading="lazy"><video muted loop playsinline preload="none" data-src="assets/media/plates/cyclist.mp4"></video><div class="dev"></div></div><div class="cap"><div class="p">A cyclist in red passes a red door on a white wall</div><div class="m">Veo 3.1 · 8 s<b class="num">$1.60</b></div></div></div></article>
+      <article class="print" style="--lean:1.1deg; --ar:16/9" data-cursor="STILL"><div class="pin"></div><div class="paper"><div class="img"><img src="assets/media/plates/splash.jpg" alt="" loading="lazy"><div class="dev"></div></div><div class="cap"><div class="p">A rider fires once and the shot is every colour</div><div class="m">Nano Banana Pro<b class="num">$0.15</b></div></div></div></article>
+      <article class="print" style="--lean:-0.7deg; --ar:16/9" data-cursor="STILL"><div class="pin"></div><div class="paper"><div class="img"><img src="assets/media/plates/carriage.jpg" alt="" loading="lazy"><div class="dev"></div></div><div class="cap"><div class="p">Two horses cross a field the colour of olives</div><div class="m">Nano Banana<b class="num">$0.039</b></div></div></div></article>
+      <article class="print" style="--lean:1.6deg; --ar:16/9" data-cursor="STILL"><div class="pin"></div><div class="paper"><div class="img"><img src="assets/media/plates/door.jpg" alt="" loading="lazy"><div class="dev"></div></div><div class="cap"><div class="p">A hand on the iron ring of a carved door</div><div class="m">Nano Banana Pro<b class="num">$0.15</b></div></div></div></article>
+      <article class="print" style="--lean:-1.0deg; --ar:16/9" data-cursor="STILL"><div class="pin"></div><div class="paper"><div class="img"><img src="assets/media/plates/blue.jpg" alt="" loading="lazy"><div class="dev"></div></div><div class="cap"><div class="p">A golden door open in a blue wall</div><div class="m">Nano Banana Pro<b class="num">$0.15</b></div></div></div></article>
+      <article class="print" style="--lean:0.8deg; --ar:16/9" data-cursor="STILL"><div class="pin"></div><div class="paper"><div class="img"><img src="assets/media/plates/bench.jpg" alt="" loading="lazy"><div class="dev"></div></div><div class="cap"><div class="p">An artisan on a stone bench, waiting</div><div class="m">Nano Banana Pro<b class="num">$0.15</b></div></div></div></article>
+      <article class="print" style="--lean:-1.2deg; --ar:16/9" data-cursor="PLAY"><div class="pin"></div><div class="paper"><div class="img"><img src="assets/media/p-sunrise.jpg" alt="" loading="lazy"><video muted loop playsinline preload="none" data-src="assets/media/sunrise.mp4"></video><div class="dev"></div></div><div class="cap"><div class="p">A figure at the edge of a sun that has not risen</div><div class="m">Kling 3 Standard · 5 s<b class="num">$0.42</b></div></div></div></article>
+      <article class="print" style="--lean:1.3deg; --ar:3/4; width:clamp(240px,24vw,400px)" data-cursor="STILL"><div class="pin"></div><div class="paper"><div class="img"><img src="assets/media/p-portrait.jpg" alt="" loading="lazy"><div class="dev"></div></div><div class="cap"><div class="p">A face lit by one window, held very still</div><div class="m">Nano Banana Pro<b class="num">$0.15</b></div></div></div></article>
+      <div class="outro"><div class="serif" style="font-size:clamp(22px,2.4vw,34px);line-height:1.1">Yours come back the same way.</div><a class="pill" href="/studio" style="margin-top:22px" data-cursor="ENTER">Make one →</a></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= INSTRUMENT ================= -->
+<section class="instr" id="instrument">
+  <div class="world" style="--img:url(assets/media/plates/bg-field.jpg)"></div>
+  <div class="wrap grid">
+    <div class="left">
+      <div class="eyebrow"><i></i>The instrument</div>
+      <h2>Read<br>the <em>button.</em></h2>
+      <p>This is the real control, wired to the real price list. Change the route, change the length, and the figure moves <b>before anything is spent</b>.</p>
+      <p>You approve a fixed amount. The print develops while you watch. A run that fails releases the charge.</p>
+      <p class="mono" style="margin-top:26px">⌘ / Ctrl + Enter to press it</p>
+    </div>
+    <div class="glass"><div class="panel" id="panel"></div></div>
+  </div>
+</section>
+
+<!-- ================= THREE MOVES ================= -->
+<section class="moves">
+  <div class="wrap sec-head">
+    <div><div class="eyebrow"><i></i>The procedure</div><h2>Three moves,<br>then it exists</h2></div>
+    <p>The order matters. Write, read, press. <em>One of the three is reading</em> — that is the part every other tool removes.</p>
+  </div>
+  <div class="wrap cols">
+    <div class="move"><div class="n num">01</div><div class="t"><h3>Write<br>the thing</h3><p>One field, one ordinary sentence. No seed to guess at, no negative prompt to invent. Precision is welcome; jargon is not required.</p></div></div>
+    <div class="move"><div class="n num">02</div><div class="t"><h3>Read<br>the button</h3><p>Pick a route and a length and the button re-prices itself. Only the lengths that route accepts are offered, so a priced button never becomes a failed run you still waited for.</p></div></div>
+    <div class="move"><div class="n num">03</div><div class="t"><h3>Press it<br>once</h3><p>The amount is held, the print develops, and the ledger records the charge — or the release. Every run lands with its sentence, its route and what it cost.</p></div></div>
+  </div>
+</section>
+
+<!-- ================= MANIFESTO ================= -->
+<section class="mani" id="manifesto">
+  <div class="in wrap">
+    <div class="txt">
+      <div class="eyebrow ink"><i></i>The argument</div>
+      <p id="maniText">A credit is a number invented so that a click can never be turned back into money. Lmiere prints the dollar figure on the button. You read it, you press it once, and the print comes back with the sentence that made it and what it cost. No plan. No pool. Nothing that expires.</p>
+      <div class="sig"><a class="pill" href="/studio" data-cursor="ENTER">Enter the darkroom →</a><span class="mono">Your balance, your runs, your archive</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= PRICES ================= -->
+<section class="prices" id="prices">
+  <div class="wrap sec-head">
+    <div><div class="eyebrow"><i></i>The rate card</div><h2>Dollars,<br>not credits</h2></div>
+    <p>Three outcomes, priced at the stated route, length and resolution. Twenty routes sit behind them in the studio. <em>Read from fal on 1 September 2026</em> — providers reprice, which is why the date is here.</p>
+  </div>
+  <div class="wrap outcomes">
+    <div class="oc"><div class="lab mono">Fast image</div><div class="big num">$0.039</div><div class="sub">per image</div><ul><li>Nano Banana</li><li>Any frame, 1K</li><li>About 8 seconds</li><li>Charged on completion</li></ul><a class="pill" href="/studio">Make a still →</a></div>
+    <div class="oc lift"><div class="lab mono">Cinematic motion</div><div class="big num">$0.42</div><div class="sub">per 5-second clip</div><ul><li>Kling 3 Standard</li><li>1080p, sound off</li><li>3, 5 or 10 seconds</li><li>A failed run releases the charge</li></ul><a class="pill" href="/studio">Make a clip →</a></div>
+    <div class="oc"><div class="lab mono">Highest quality</div><div class="big num">$0.80</div><div class="sub">per 4-second clip</div><ul><li>Veo 3.1</li><li>1080p, sound off</li><li>4, 6 or 8 seconds</li><li>Sound doubles the rate</li></ul><a class="pill" href="/studio">Make the best →</a></div>
+  </div>
+  <div class="wrap note">Higgsfield is not a rip-off — it resells close to the provider rate. The win is choice and legibility: Veo 3.1 Lite is seven times cheaper per second than Seedance 2.5 for a clip of the same length, and you can see it before you press.</div>
+</section>
+
+<!-- ================= FAQ ================= -->
+<section class="faq">
+  <div class="wrap sec-head">
+    <div><div class="eyebrow"><i></i>Questions</div><h2>Answered without<br>the marketing voice</h2></div>
+  </div>
+  <div class="wrap list">
+    <details class="q" open><summary><span class="i">Q.01</span><span>Is this cheaper than a subscription?</span><span class="x">+</span></summary><div class="a">Below your crossover, yes; above it, no. Forty clips a month at $0.05 a second is a few dollars, not fifty. What is always true is that <b>you can see what a click cost</b>, which a credit balance is designed to prevent.</div></details>
+    <details class="q"><summary><span class="i">Q.02</span><span>Where do the prices come from?</span><span class="x">+</span></summary><div class="a">From the provider's own API, read on the date printed above. They are quoted per second for motion because that is how motion is billed, and flat per image for stills. The provider can reprice at any time, so the page carries the date it was read.</div></details>
+    <details class="q"><summary><span class="i">Q.03</span><span>Do balances expire?</span><span class="x">+</span></summary><div class="a"><b>No.</b> A balance is money you put in, in dollars, and it stays there until a run spends it. There is no monthly allowance to lose and no team pool to be spent out from under you.</div></details>
+    <details class="q"><summary><span class="i">Q.04</span><span>Why are the accepted lengths different per route?</span><span class="x">+</span></summary><div class="a">Because each provider only renders certain durations. Veo refuses five seconds; Hailuo 02 Pro is six seconds and nothing else; Wan takes anything from two to thirty. The button only offers lengths that will actually run.</div></details>
+    <details class="q"><summary><span class="i">Q.05</span><span>What happens if I close the tab?</span><span class="x">+</span></summary><div class="a">The run keeps developing on the provider. When you come back, the print is either in your archive with its charge, or the charge has been released. Nothing is billed twice.</div></details>
+  </div>
+</section>
+
+<!-- ================= CTA ================= -->
+<section class="cta">
+  <div class="bg"><video muted loop playsinline data-src="assets/media/room.mp4" poster="assets/media/room.jpg"></video></div>
+  <div class="in">
+    <div class="eyebrow" style="margin:0 auto 22px"><i></i>Safelight on</div>
+    <h2 id="ctaH"><span class="w"><span>Enter the</span></span><br><span class="w"><span>darkroom</span></span></h2>
+    <a class="pill" href="/studio" data-cursor="ENTER">Open the studio →</a>
+    <div class="fine">Begin with one sentence and $0.01 · no subscription · charged on completion</div>
+  </div>
+</section>
+
+</main>
+<footer>
+  <span>Lmiere · the darkroom</span>
+  <span>Prices read from fal · 2026-09-01</span>
+  <span><a href="/studio">Studio</a> &nbsp;·&nbsp; <a href="#prices">Rate card</a> &nbsp;·&nbsp; <a href="#top">Top</a></span>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.18/dist/lenis.min.js"></script>
+<script src="assets/js/models.js"></script>
+<script src="assets/js/film.js"></script>
+<script src="assets/js/site.js"></script>
+</body>
+</html>

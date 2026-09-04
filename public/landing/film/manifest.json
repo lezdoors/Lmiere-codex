@@ -1,0 +1,50 @@
+{
+  "dir": "film/frames",
+  "count": 682,
+  "width": 1280,
+  "height": 720,
+  "fps": 24,
+  "seam": "#ada45f",
+  "chapters": [
+    {
+      "at": 0.0,
+      "label": "The rider",
+      "stamp": "a rider on red earth \u00b7 Veo 3.1 \u00b7 10 s \u00b7 $2.00",
+      "light": false
+    },
+    {
+      "at": 0.299,
+      "label": "The shot",
+      "stamp": "one shot, every colour \u00b7 Veo 3.1 \u00b7 10 s \u00b7 $2.00",
+      "light": false
+    },
+    {
+      "at": 0.775,
+      "label": "The field",
+      "stamp": "two horses cross an olive field \u00b7 Veo 3.1 \u00b7 10 s \u00b7 $2.00",
+      "light": true
+    }
+  ],
+  "receipt": {
+    "route": "Veo 3.1",
+    "rate": 0.2,
+    "seconds": 28.4
+  },
+  "_light_note": "light flags are for the REAL film; stand-in frames are all dark",
+  "splash": {
+    "at": 0.451,
+    "len": 0.12,
+    "origin": [
+      0.5,
+      0.3
+    ],
+    "count": 44
+  },
+  "mobile": {
+    "dir": "film/frames-m",
+    "count": 682,
+    "width": 720,
+    "height": 405
+  },
+  "_preview": "3-clip preview (c1+c2+c3)."
+}
