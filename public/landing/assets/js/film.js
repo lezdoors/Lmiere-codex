@@ -45,6 +45,8 @@ function pick(m){
   // scroll length follows the film's runtime: VH_PER_SECOND of scroll per second of film (≈15 px per frame at 900px tall)
   const secs = (m.receipt && m.receipt.seconds) || FILM.count / FILM.fps;
   sec.style.height = `calc(100vh + ${Math.round(secs * (m.vhPerSecond || 45))}vh)`;
+  // the page below is pinned by ScrollTrigger and was measured before this height existed
+  if(window.ScrollTrigger) requestAnimationFrame(() => ScrollTrigger.refresh());
 }
 const frameUrl = i => `${FILM.dir}f_${String(i + 1).padStart(4, '0')}.jpg`;
 

@@ -44,7 +44,7 @@ document.body.classList.add('no-scroll');
 const heroIn = () => {
   document.getElementById('film').classList.add('on');
   const tl = gsap.timeline({defaults:{ease:'expo.out'}});
-  tl.to(pre, {yPercent:-100, duration:1.1, ease:'expo.inOut', onComplete:() => { pre.remove(); document.body.classList.remove('no-scroll'); }})
+  tl.to(pre, {yPercent:-100, duration:1.1, ease:'expo.inOut', onComplete:() => { pre.remove(); document.body.classList.remove('no-scroll'); ScrollTrigger.refresh(); }})
     .fromTo('#filmCanvas', {scale:1.1}, {scale:1, duration:2.2, clearProps:'transform'}, '-=0.9')
     .to('#film h1 .w span', {y:0, duration:1.3, stagger:.12}, '-=1.9')
     .to('#heroSub', {opacity:1, y:0, duration:1.1}, '-=0.9')
