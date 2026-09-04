@@ -222,7 +222,7 @@ function tick(now){
 /* ---------------- boot ---------------- */
 async function boot(){
   let m;
-  try{ m = await (await fetch('film/manifest.json', {cache:'no-cache'})).json(); }
+  try{ m = await (await fetch('/landing/film/manifest.json', {cache:'no-cache'})).json(); }
   catch(e){ console.warn('film: no manifest', e); state._resolve(false); window.__ready = true; return; }
   if(!m || !m.count){ state._resolve(false); window.__ready = true; return; }
   pick(m);
@@ -260,6 +260,6 @@ async function boot(){
 }
 if(reduce){
   // poster + copy only: the first frame, no scrub
-  fetch('film/manifest.json').then(r => r.json()).then(m => { pick(m); size(); const im = new Image(); im.onload = () => { images[0] = im; draw(0, true); }; im.src = frameUrl(0); beats.forEach(b => { b.el.style.opacity = b.peak <= 0.01 ? 1 : 0; b.el.style.visibility = b.peak <= 0.01 ? 'visible' : 'hidden'; }); state._resolve(true); window.__ready = true; }).catch(() => { state._resolve(false); window.__ready = true; });
+  fetch('/landing/film/manifest.json').then(r => r.json()).then(m => { pick(m); size(); const im = new Image(); im.onload = () => { images[0] = im; draw(0, true); }; im.src = frameUrl(0); beats.forEach(b => { b.el.style.opacity = b.peak <= 0.01 ? 1 : 0; b.el.style.visibility = b.peak <= 0.01 ? 'visible' : 'hidden'; }); state._resolve(true); window.__ready = true; }).catch(() => { state._resolve(false); window.__ready = true; });
 } else boot();
 })();

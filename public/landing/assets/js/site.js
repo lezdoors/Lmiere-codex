@@ -159,7 +159,7 @@ function render(){
       <div class="receipt num" id="receipt">${p.line}</div>
       <button class="gen" id="go" data-cursor="PRESS"><span id="goLabel">Develop</span><span class="amt num"><span id="amt">${money(p.amount)}</span><small>on completion</small></span></button>
       <div class="fine" id="fine">You approve this exact amount · a failed run releases it</div>
-      <div class="tray idle" id="tray"><img id="trayImg" src="${mediaUrl(`assets/media/${STILLS[0]}.jpg`)}" alt=""><div class="liquid"></div><div class="bar" id="trayBar"></div><div class="empty" id="trayEmpty">Press the button. The print develops here, in the safelight.</div><div class="hud num"><span id="hudL">Tray · empty</span><span id="hudR">00:00</span></div></div>
+      <div class="tray idle" id="tray"><img id="trayImg" src="${mediaUrl(`/landing/assets/media/${STILLS[0]}.jpg`)}" alt=""><div class="liquid"></div><div class="bar" id="trayBar"></div><div class="empty" id="trayEmpty">Press the button. The print develops here, in the safelight.</div><div class="hud num"><span id="hudL">Tray · empty</span><span id="hudR">00:00</span></div></div>
     </div></div>`;
 }
 render();
@@ -197,8 +197,8 @@ function develop(){
   // swap the plate: a new still (or clip) each press
   const key = isV ? CLIPS[plateIx % CLIPS.length] : STILLS[plateIx % STILLS.length]; plateIx++;
   let media = img;
-  if(isV){ const v = document.createElement('video'); v.muted = true; v.loop = true; v.playsInline = true; v.src = mediaUrl(`assets/media/${key}.mp4`); v.poster = mediaUrl(`assets/media/${key}.jpg`); img.replaceWith(v); media = v; v.id = 'trayImg'; v.play().catch(()=>{}); }
-  else { if(img.tagName==='VIDEO'){ const i = document.createElement('img'); i.id='trayImg'; i.alt=''; img.replaceWith(i); media = i; } media.src = mediaUrl(`assets/media/${key}.jpg`); }
+  if(isV){ const v = document.createElement('video'); v.muted = true; v.loop = true; v.playsInline = true; v.src = mediaUrl(`/landing/assets/media/${key}.mp4`); v.poster = mediaUrl(`/landing/assets/media/${key}.jpg`); img.replaceWith(v); media = v; v.id = 'trayImg'; v.play().catch(()=>{}); }
+  else { if(img.tagName==='VIDEO'){ const i = document.createElement('img'); i.id='trayImg'; i.alt=''; img.replaceWith(i); media = i; } media.src = mediaUrl(`/landing/assets/media/${key}.jpg`); }
   tray.classList.remove('idle'); $('#trayEmpty').style.display = 'none';
   go.classList.add('busy'); lab.textContent = 'Developing';
   fine.textContent = `${money(p.amount)} held · ${p.m.name}${isV?' · '+p.len+' s':''}`;

@@ -1,5 +1,5 @@
 {
-  "dir": "film/frames",
+  "dir": "/landing/film/frames",
   "count": 682,
   "width": 1280,
   "height": 720,
@@ -41,7 +41,7 @@
     "count": 44
   },
   "mobile": {
-    "dir": "film/frames-m",
+    "dir": "/landing/film/frames-m",
     "count": 682,
     "width": 720,
     "height": 405
