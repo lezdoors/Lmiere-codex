@@ -404,3 +404,4 @@ main > section.film, main > section.travel{padding-block:0}
 .film .stage{background:var(--seam)}
 @media (max-width:900px){ .sec-head{grid-template-columns:1fr} .moves .cols,.outcomes{grid-template-columns:1fr} .oc.lift{transform:none} .instr .grid{grid-template-columns:1fr} }
 @media (max-width:640px){ .gen{flex-wrap:wrap; gap:8px 14px; padding:16px 18px} .gen .amt{flex-basis:100%; text-align:left} .gen .amt small{display:inline; margin-left:8px} }
+@media (max-width:820px){ .film .hud .chap{max-width:none; grid-template-columns:auto auto 1fr; gap:4px 10px} .film .hud .chap .bar{width:56px} .film .hud .chap .stamp{display:none} .film .hud .rcpt{font-size:10px} }

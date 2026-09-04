@@ -43,8 +43,9 @@
   "mobile": {
     "dir": "/landing/film/frames-m",
     "count": 682,
-    "width": 720,
-    "height": 405
+    "width": 540,
+    "height": 960,
+    "aspect": "9:16 crop"
   },
   "_preview": "3-clip preview (c1+c2+c3)."
 }
